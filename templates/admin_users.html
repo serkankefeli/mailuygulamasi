@@ -1,0 +1,37 @@
+<tbody>
+                        {% for u in users %}
+                        <tr>
+                            <td class="ps-4 fw-bold text-muted">#{{ u.id }}</td>
+                            <td>
+                                {{ u.username }}
+                                {% if u.is_admin == 1 %}
+                                    <span class="badge bg-danger ms-2">Yönetici</span>
+                                {% else %}
+                                    <span class="badge bg-secondary ms-2">Kullanıcı</span>
+                                {% endif %}
+                            </td>
+                            <td><span class="badge bg-info text-dark rounded-pill">{{ u.total_mails }} Mail</span></td>
+                            <td class="text-end pe-4">
+                                {% if u.id != current_user.id %}
+
+                                    {% if u.is_admin == 0 %}
+                                    <a href="/admin/toggle_role/{{ u.id }}" class="btn btn-sm btn-outline-success me-2">
+                                        <i class="fa-solid fa-arrow-up"></i> Yönetici Yap
+                                    </a>
+                                    {% else %}
+                                    <a href="/admin/toggle_role/{{ u.id }}" class="btn btn-sm btn-outline-warning text-dark me-2">
+                                        <i class="fa-solid fa-arrow-down"></i> Yetkiyi Al
+                                    </a>
+                                    {% endif %}
+
+                                    <a href="/admin/delete_user/{{ u.id }}" class="btn btn-sm btn-outline-danger border-0" onclick="return confirm('Bu kullanıcıyı tamamen silmek istediğinize emin misiniz?');">
+                                        <i class="fa-solid fa-trash-can"></i>
+                                    </a>
+
+                                {% else %}
+                                <span class="text-muted small">Bu Sensin</span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
