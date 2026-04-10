@@ -18,7 +18,7 @@
   <div class="container">
     <a class="navbar-brand fw-bold" href="#"><i class="fa-solid fa-paper-plane me-2"></i>CRM Mailer</a>
     <div class="d-flex text-white align-items-center">
-        <span class="me-3">Merhaba, <b class="text-warning">{{ current_user.username }}</b></span>
+        <span class="me-3"><b class="text-warning">{{ current_user.ad_soyad }}</b>{{ current_user.username }}</b></span>
 
         {% if current_user.is_admin == 1 %}
         <a href="{{ url_for('admin_users') }}" class="btn btn-info btn-sm me-3 fw-bold text-dark"><i class="fa-solid fa-users-gear me-1"></i> Yönetici Paneli</a>

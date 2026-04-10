@@ -1,19 +1,65 @@
-<tbody>
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Kullanıcı Yönetimi</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body class="bg-light">
+
+<nav class="navbar navbar-expand-lg navbar-dark bg-dark mb-4 shadow">
+  <div class="container">
+    <a class="navbar-brand fw-bold text-info" href="#"><i class="fa-solid fa-users-gear me-2"></i>Süper Yönetici Paneli</a>
+    <div class="d-flex align-items-center">
+        <a href="{{ url_for('dashboard') }}" class="btn btn-secondary btn-sm"><i class="fa-solid fa-arrow-left me-1"></i> Ana Panele Dön</a>
+    </div>
+  </div>
+</nav>
+
+<div class="container">
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+            {% for category, message in messages %}
+                <div class="alert alert-{{ category }} alert-dismissible fade show">
+                    {{ message }}
+                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                </div>
+            {% endfor %}
+        {% endif %}
+    {% endwith %}
+
+    <div class="card shadow-sm border-0 rounded-lg">
+        <div class="card-header bg-white py-3">
+            <h5 class="mb-0 fw-bold"><i class="fa-solid fa-users me-2 text-primary"></i>Sisteme Kayıtlı Kullanıcılar</h5>
+        </div>
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-hover align-middle mb-0">
+                    <thead class="table-light">
+                        <tr>
+                            <th class="ps-4">ID</th>
+                            <th>Ad Soyad</th>
+                            <th>Kayıtlı E-Posta</th>
+                            <th>Gönderimler</th>
+                            <th class="text-end pe-4">İşlem</th>
+                        </tr>
+                    </thead>
+                    <tbody>
                         {% for u in users %}
                         <tr>
                             <td class="ps-4 fw-bold text-muted">#{{ u.id }}</td>
-                            <td>
-                                {{ u.username }}
+                            <td class="fw-bold">
+                                {{ u.ad_soyad }}
                                 {% if u.is_admin == 1 %}
                                     <span class="badge bg-danger ms-2">Yönetici</span>
-                                {% else %}
-                                    <span class="badge bg-secondary ms-2">Kullanıcı</span>
                                 {% endif %}
                             </td>
+                            <td>{{ u.email }}</td>
                             <td><span class="badge bg-info text-dark rounded-pill">{{ u.total_mails }} Mail</span></td>
                             <td class="text-end pe-4">
                                 {% if u.id != current_user.id %}
-
                                     {% if u.is_admin == 0 %}
                                     <a href="/admin/toggle_role/{{ u.id }}" class="btn btn-sm btn-outline-success me-2">
                                         <i class="fa-solid fa-arrow-up"></i> Yönetici Yap
@@ -23,11 +69,9 @@
                                         <i class="fa-solid fa-arrow-down"></i> Yetkiyi Al
                                     </a>
                                     {% endif %}
-
                                     <a href="/admin/delete_user/{{ u.id }}" class="btn btn-sm btn-outline-danger border-0" onclick="return confirm('Bu kullanıcıyı tamamen silmek istediğinize emin misiniz?');">
                                         <i class="fa-solid fa-trash-can"></i>
                                     </a>
-
                                 {% else %}
                                 <span class="text-muted small">Bu Sensin</span>
                                 {% endif %}
@@ -35,3 +79,10 @@
                         </tr>
                         {% endfor %}
                     </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+</body>
+</html>

@@ -28,10 +28,14 @@
                       {% endif %}
                     {% endwith %}
 
-                    <form method="POST" action="/register">
+                <form method="POST" action="/register">
                         <div class="mb-3">
                             <label class="form-label fw-bold small">Kullanıcı Adı</label>
-                            <input type="text" name="username" class="form-control" placeholder="Örn: sirket_adi" required>
+                           <input type="text" name="ad_soyad" required>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label fw-bold small text-primary"><i class="fa-solid fa-envelope me-1"></i>E-Posta Adresi (Zorunlu)</label>
+                            <input type="email" name="email" class="form-control" placeholder="Dogrulama kodu buraya gelecek" required>
                         </div>
                         <div class="mb-3">
                             <label class="form-label fw-bold small">Şifre</label>
