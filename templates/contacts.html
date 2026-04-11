@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Akıllı Rehber Yönetimi</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        body { background-color: #f4f7f6; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+        .navbar { background-color: #1a2b3c !important; }
+        .card { border-radius: 12px; border: none; box-shadow: 0 4px 12px rgba(0,0,0,0.05); margin-bottom: 1.5rem; }
+        .card-header { background-color: #ffffff; border-bottom: 1px solid #f0f0f0; border-radius: 12px 12px 0 0 !important; padding: 1.25rem 1.5rem; }
+        .btn-primary { background-color: #2c3e50; border-color: #2c3e50; }
+        .btn-primary:hover { background-color: #1a252f; border-color: #1a252f; }
+        .btn-success { background-color: #27ae60; border-color: #27ae60; }
+        .list-group-item { border-left: none; border-right: none; border-radius: 0; padding: 1rem 1.5rem; transition: background-color 0.2s; }
+        .list-group-item:hover { background-color: #f8f9fa; border-left: 4px solid #2c3e50; padding-left: calc(1.5rem - 4px); }
+        .table th { font-weight: 600; color: #8a98a5; font-size: 0.85rem; text-transform: uppercase; letter-spacing: 0.5px; border-bottom-width: 1px; padding: 1rem; }
+        .table td { padding: 1rem; vertical-align: middle; color: #333; }
+        .badge-group { background-color: #e9ecef; color: #495057; font-weight: 500; font-size: 0.8rem; padding: 0.4rem 0.8rem; border-radius: 50rem; margin-right: 0.3rem; display: inline-block; margin-bottom: 0.2rem;}
+        .form-control, .form-select { border-radius: 8px; border: 1px solid #dee2e6; padding: 0.6rem 1rem; }
+        .form-control:focus, .form-select:focus { box-shadow: 0 0 0 0.25rem rgba(44, 62, 80, 0.15); border-color: #2c3e50; }
+    </style>
+</head>
+<body>
+
+<nav class="navbar navbar-expand-lg navbar-dark bg-dark mb-4 shadow-sm">
+  <div class="container-fluid px-4">
+    <a class="navbar-brand fw-bold tracking-wide" href="#"><i class="fa-solid fa-address-book me-2 text-warning"></i>EST Rehber Yönetimi</a>
+    <div class="d-flex align-items-center">
+        <a href="{{ url_for('dashboard') }}" class="btn btn-light btn-sm fw-bold text-dark"><i class="fa-solid fa-paper-plane me-1"></i> Kampanya Ekranına Dön</a>
+    </div>
+  </div>
+</nav>
+
+<div class="container-fluid px-4">
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% if messages %}{% for category, message in messages %}<div class="alert alert-{{ category }} rounded-3 shadow-sm border-0">{{ message }}</div>{% endfor %}{% endif %}
+    {% endwith %}
+
+    <div class="row">
+        <div class="col-lg-3 col-md-4">
+            <div class="card h-100">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0 fw-bold text-dark"><i class="fa-solid fa-users-rectangle text-primary me-2"></i>Müşteri Grupları</h5>
+                </div>
+                <div class="card-body p-0">
+                    <div class="p-3 bg-light border-bottom">
+                        <form method="POST" action="/add_group">
+                            <div class="input-group">
+                                <input type="text" name="group_name" class="form-control" placeholder="Yeni grup oluştur..." required>
+                                <button class="btn btn-primary" type="submit"><i class="fa-solid fa-plus"></i></button>
+                            </div>
+                        </form>
+                    </div>
+
+                    <ul class="list-group list-group-flush">
+                        {% for g in groups %}
+                            <li class="list-group-item d-flex justify-content-between align-items-center">
+                                <span class="fw-bold text-secondary"><i class="fa-solid fa-folder text-warning me-2"></i>{{ g[1] }}</span>
+                            </li>
+                        {% else %}
+                            <div class="text-center p-4 text-muted small">
+                                <i class="fa-solid fa-folder-open fa-2x mb-2 text-light"></i><br>Henüz grup oluşturmadınız.
+                            </div>
+                        {% endfor %}
+                    </ul>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-lg-9 col-md-8">
+
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h6 class="mb-0 fw-bold text-dark"><i class="fa-solid fa-user-plus text-success me-2"></i>Rehbere Yeni Kişi Ekle</h6>
+                </div>
+                <div class="card-body p-4">
+                    <form method="POST" action="/add_contact">
+                        <div class="row align-items-end">
+                            <div class="col-md-3 mb-3 mb-md-0">
+                                <label class="form-label small fw-bold text-muted">Ad Soyad / Firma</label>
+                                <input type="text" name="name" class="form-control" placeholder="Örn: Ahmet Yılmaz" required>
+                            </div>
+                            <div class="col-md-4 mb-3 mb-md-0">
+                                <label class="form-label small fw-bold text-muted">E-Posta Adresi</label>
+                                <input type="email" name="email" class="form-control" placeholder="ahmet@sirket.com" required>
+                            </div>
+                            <div class="col-md-3 mb-3 mb-md-0">
+                                <label class="form-label small fw-bold text-muted">Ait Olduğu Grup(lar)</label>
+                                <select name="group_ids" class="form-select" multiple style="height: 45px;">
+                                    {% for g in groups %}
+                                        <option value="{{ g[0] }}">{{ g[1] }}</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                            <div class="col-md-2 text-end">
+                                <button type="submit" class="btn btn-success fw-bold w-100 py-2"><i class="fa-solid fa-check me-1"></i> Kaydet</button>
+                            </div>
+                        </div>
+                        <div class="form-text small mt-2 text-muted"><i class="fa-solid fa-circle-info me-1"></i>Birden fazla grup seçmek için klavyenizdeki <b>Ctrl</b> (veya Cmd) tuşuna basılı tutarak tıklayın.</div>
+                    </form>
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="table-responsive">
+                    <table class="table table-hover align-middle mb-0">
+                        <thead class="bg-light">
+                            <tr>
+                                <th class="ps-4" width="30%">İsim / Unvan</th>
+                                <th width="35%">E-Posta Adresi</th>
+                                <th width="35%">Dahil Olduğu Gruplar</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for c in contacts %}
+                            <tr>
+                                <td class="ps-4 fw-bold text-dark">{{ c.name }}</td>
+                                <td class="text-secondary"><i class="fa-regular fa-envelope me-2 text-muted"></i>{{ c.email }}</td>
+                                <td>
+                                    {% if c.groups %}
+                                        {% for g in c.groups.split(', ') %}
+                                            <span class="badge-group">{{ g }}</span>
+                                        {% endfor %}
+                                    {% else %}
+                                        <span class="badge bg-light text-muted border">Grupsuz</span>
+                                    {% endif %}
+                                </td>
+                            </tr>
+                            {% else %}
+                            <tr>
+                                <td colspan="3" class="text-center py-5 text-muted">
+                                    <i class="fa-solid fa-address-book fa-3x mb-3 text-light"></i><br>
+                                    Rehberinizde henüz kimse yok. Yukarıdaki formu kullanarak kişi ekleyebilirsiniz.
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+        </div>
+    </div>
+</div>
+</body>
+</html>

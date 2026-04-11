@@ -3,182 +3,408 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Kurumsal Mailer Paneli</title>
+    <title>Ana Panel - EST Kurumsal Mail</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
-        .nav-tabs .nav-link { color: #495057; font-weight: 500; border-radius: 0; }
-        .nav-tabs .nav-link.active { font-weight: bold; color: #0d6efd; border-bottom: 3px solid #0d6efd; background-color: transparent; border-top:none; border-left:none; border-right:none;}
-        .card { border-radius: 10px; border: none; box-shadow: 0 4px 6px rgba(0,0,0,0.05); }
+        body { background-color: #f4f7f6; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+        .navbar { background-color: #1a2b3c !important; }
+        .card { border-radius: 12px; border: none; box-shadow: 0 4px 12px rgba(0,0,0,0.05); margin-bottom: 1.5rem; }
+        .card-header { border-bottom: 1px solid #f0f0f0; border-radius: 12px 12px 0 0 !important; padding: 1rem 1.5rem; }
+        .btn-primary { background-color: #2c3e50; border-color: #2c3e50; }
+        .btn-primary:hover { background-color: #1a252f; border-color: #1a252f; }
+        .form-control, .form-select { border-radius: 8px; border: 1px solid #dee2e6; }
+        .form-control:focus, .form-select:focus { box-shadow: 0 0 0 0.25rem rgba(44, 62, 80, 0.15); border-color: #2c3e50; }
+        .ck-editor__editable_inline { min-height: 250px; border-radius: 0 0 8px 8px !important; }
+        .nav-tabs .nav-link { color: #6c757d; font-weight: 500; border: none; border-bottom: 3px solid transparent; padding: 1rem 1.5rem; }
+        .nav-tabs .nav-link.active { color: #2c3e50; font-weight: bold; border-bottom: 3px solid #2c3e50; background: transparent; }
+        .stat-card { transition: transform 0.2s; }
+        .stat-card:hover { transform: translateY(-5px); }
+        .api-box { background-color: #2b2b2b; color: #a9b7c6; font-family: monospace; border-radius: 8px; padding: 15px; }
+        .api-keyword { color: #cc7832; }
+        .api-string { color: #6a8759; }
     </style>
 </head>
-<body class="bg-light">
+<body>
 
-<nav class="navbar navbar-expand-lg navbar-dark bg-dark mb-4 shadow">
-  <div class="container">
-    <a class="navbar-brand fw-bold" href="#"><i class="fa-solid fa-paper-plane me-2"></i>CRM Mailer</a>
-    <div class="d-flex text-white align-items-center">
-        <span class="me-3"><b class="text-warning">{{ current_user.ad_soyad }}</b>{{ current_user.username }}</b></span>
-
+<nav class="navbar navbar-expand-lg navbar-dark shadow-sm mb-4">
+  <div class="container-fluid px-4">
+    <a class="navbar-brand fw-bold" href="#"><i class="fa-solid fa-paper-plane me-2 text-warning"></i>EST Mail Yönetimi</a>
+    <div class="d-flex align-items-center gap-3">
+        <span class="text-light small">Hoş Geldin, <b class="text-warning">{{ current_user.ad_soyad }}</b></span>
+        <a href="{{ url_for('profile') }}" class="btn btn-outline-light btn-sm"><i class="fa-solid fa-user-pen"></i> Profil</a>
         {% if current_user.is_admin == 1 %}
-        <a href="{{ url_for('admin_users') }}" class="btn btn-info btn-sm me-3 fw-bold text-dark"><i class="fa-solid fa-users-gear me-1"></i> Yönetici Paneli</a>
+            <a href="{{ url_for('admin_users') }}" class="btn btn-danger btn-sm"><i class="fa-solid fa-shield-halved"></i> Yönetici</a>
         {% endif %}
-
-        <a href="{{ url_for('logout') }}" class="btn btn-danger btn-sm"><i class="fa-solid fa-right-from-bracket me-1"></i> Çıkış Yap</a>
+        <a href="{{ url_for('logout') }}" class="btn btn-warning btn-sm fw-bold"><i class="fa-solid fa-right-from-bracket"></i> Çıkış</a>
     </div>
   </div>
 </nav>
 
-<div class="container">
+<div class="container-fluid px-4">
     {% with messages = get_flashed_messages(with_categories=true) %}
-        {% if messages %}
-            {% for category, message in messages %}
-                <div class="alert alert-{{ category }} alert-dismissible fade show">
-                    {{ message }}
-                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-                </div>
-            {% endfor %}
-        {% endif %}
+      {% if messages %}{% for category, message in messages %}<div class="alert alert-{{ category }} rounded-3 shadow-sm">{{ message }}</div>{% endfor %}{% endif %}
     {% endwith %}
 
-    <div class="card p-3 mb-5">
-        <ul class="nav nav-tabs mb-4" id="myTab" role="tablist">
-            <li class="nav-item"><button class="nav-link active" data-bs-toggle="tab" data-bs-target="#tab-editor">✉️ E-posta Düzenleyici</button></li>
-            <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#tab-reports">📊 Raporlar</button></li>
-            <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#tab-blacklist">🚫 Kara Liste</button></li>
-            <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#tab-settings">⚙️ Ayarlar</button></li>
-        </ul>
-
-        <div class="tab-content" id="myTabContent">
-
-            <div class="tab-pane fade show active" id="tab-editor">
-                <form action="/send_mail" method="POST" enctype="multipart/form-data">
-                    <div class="mb-3">
-                        <label class="form-label fw-bold text-warning">Kime (Alt alta veya virgülle ayırın):</label>
-                        <textarea class="form-control" name="recipients" rows="3" placeholder="musteri1@firma.com&#10;musteri2@firma.com" required></textarea>
+    <div class="row mb-2">
+        <div class="col-xl-3 col-md-6 mb-4">
+            <div class="card stat-card bg-primary text-white h-100 py-2">
+                <div class="card-body">
+                    <div class="row no-gutters align-items-center">
+                        <div class="col mr-2">
+                            <div class="text-xs fw-bold text-uppercase mb-1" style="opacity: 0.8;">Toplam Gönderim</div>
+                            <div class="h3 mb-0 fw-bold">{{ stats.total }}</div>
+                        </div>
+                        <div class="col-auto"><i class="fa-solid fa-envelopes-bulk fa-2x text-white-50"></i></div>
                     </div>
-                    <div class="mb-3">
-                        <label class="form-label fw-bold">Konu:</label>
-                        <input type="text" class="form-control" name="subject" required>
-                    </div>
-                    <div class="mb-3">
-                        <label class="form-label fw-bold">Mesajınız:</label>
-                        <textarea class="form-control" name="body" rows="6">Merhaba,&#10;&#10;Sizin için hazırladığımız özel tanıtım videosunu aşağıdan izleyebilirsiniz.&#10;&#10;Saygılarımızla,</textarea>
-                    </div>
-
-                    <div class="mb-3 p-3 border rounded bg-white shadow-sm">
-                        <h6 class="fw-bold text-danger"><i class="fa-brands fa-youtube me-2"></i>Spam Korumalı Video Ekleme</h6>
-                        <p class="text-muted small mb-2">Videoyu mailinize gömmek yerine, YouTube linkini ve kapak fotoğrafını ekleyin. Böylece spama düşmezsiniz.</p>
-
-                        <label class="form-label small fw-bold">YouTube Video Linki:</label>
-                        <input type="url" class="form-control mb-2" name="video_link" placeholder="Örn: https://www.youtube.com/watch?v=...">
-
-                        <label class="form-label small fw-bold">Video Kapak Fotoğrafı (Play Tuşlu Bir JPG/PNG):</label>
-                        <input class="form-control" type="file" name="video_cover" accept="image/*">
-                    </div>
-
-                    <div class="mb-4 p-3 border rounded bg-white shadow-sm">
-                        <label class="form-label small fw-bold text-secondary"><i class="fa-solid fa-paperclip me-2"></i>Klasik Dosya Eki (PDF, Word vb.) - İsteğe Bağlı</label>
-                        <input class="form-control" type="file" name="attachment" multiple>
-                    </div>
-
-                    <button type="submit" class="btn btn-success w-100 py-3 fw-bold fs-5"><i class="fa-solid fa-rocket me-2"></i>Gönderimi Başlat</button>
-                </form>
-            </div>
-
-            <div class="tab-pane fade" id="tab-reports">
-                <h5 class="mb-3">Son Gönderimler <small class="text-muted">(Sayfayı yeniledikçe güncellenir)</small></h5>
-                <div class="table-responsive">
-                    <table class="table table-striped table-hover align-middle">
-                        <thead class="table-dark">
-                            <tr><th>Tarih</th><th>Alıcı</th><th>Konu</th><th>Aktivite</th><th>Durum</th><th>Detay</th></tr>
-                        </thead>
-                        <tbody>
-                            {% for log in logs %}
-                            <tr>
-                                <td><small>{{ log[2] }}</small></td> <td>{{ log[3] }}</td> <td>{{ log[4] }}</td> <td>
-                                    {% if log[7] == 1 %}
-                                        <span class="badge bg-primary"><i class="fa-solid fa-eye me-1"></i>Açıldı</span>
-                                        <br><small class="text-muted" style="font-size:10px;">{{ log[8] }}</small>
-                                    {% else %}
-                                        <span class="badge bg-secondary"><i class="fa-solid fa-eye-slash me-1"></i>Bekliyor</span>
-                                    {% endif %}
-                                </td>
-                                <td>
-                                    {% if log[5] == 'Başarılı' %}<span class="badge bg-success">İletildi</span>
-                                    {% elif log[5] == 'Abonelik İptal' %}<span class="badge bg-dark">İptal Etti</span>
-                                    {% elif log[5] == 'Atlandı' %}<span class="badge bg-warning text-dark">Atlandı</span>
-                                    {% else %}<span class="badge bg-danger">Hata</span>{% endif %}
-                                </td>
-                                <td><small>{{ log[6][:40] }}...</small></td> </tr>
-                            {% else %}
-                            <tr><td colspan="6" class="text-center text-muted py-4">Henüz rapor bulunmuyor.</td></tr>
-                            {% endfor %}
-                        </tbody>
-                    </table>
                 </div>
             </div>
-
-           <div class="tab-pane fade" id="tab-blacklist">
-    <div class="row">
-        <div class="col-md-6 border-end">
-            <h5 class="mb-3">Kara Listeye Ekle</h5>
-            <p class="text-muted small">İstemeyen kullanıcıların maillerini alt alta yazıp kaydedin.</p>
-            <form action="/add_blacklist" method="POST">
-                <textarea class="form-control mb-3" name="blacklist_emails" rows="5" placeholder="ornek@istemiyorum.com"></textarea>
-                <button type="submit" class="btn btn-danger w-100">➕ Listeye Ekle</button>
-            </form>
         </div>
-        <div class="col-md-6">
-            <h5 class="mb-3">Mevcut Kara Liste</h5>
-
-            <ul class="list-group list-group-flush" style="max-height: 400px; overflow-y: auto;">
-                {% for entry in blacklist %}
-                <li class="list-group-item d-flex justify-content-between align-items-center">
-                    <span><i class="fa-solid fa-envelope me-2 text-secondary"></i>{{ entry[2] }}</span>
-
-                    <a href="/remove_blacklist/{{ entry[0] }}" class="btn btn-outline-danger btn-sm border-0">
-                        <i class="fa-solid fa-trash-can"></i> Çıkar
-                    </a>
-                </li>
-                {% else %}
-                <li class="list-group-item text-muted text-center py-4">Kara liste şu an boş.</li>
-                {% endfor %}
-            </ul>
-
+        <div class="col-xl-3 col-md-6 mb-4">
+            <div class="card stat-card bg-secondary text-white h-100 py-2">
+                <div class="card-body">
+                    <div class="row no-gutters align-items-center">
+                        <div class="col mr-2">
+                            <div class="text-xs fw-bold text-uppercase mb-1" style="opacity: 0.8;">İletildi (Tıklanmadı)</div>
+                            <div class="h3 mb-0 fw-bold">{{ stats.unread }}</div>
+                        </div>
+                        <div class="col-auto"><i class="fa-solid fa-check-double fa-2x text-white-50"></i></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-xl-3 col-md-6 mb-4">
+            <div class="card stat-card bg-info text-dark h-100 py-2">
+                <div class="card-body">
+                    <div class="row no-gutters align-items-center">
+                        <div class="col mr-2">
+                            <div class="text-xs fw-bold text-uppercase mb-1" style="opacity: 0.8;">Etkileşim (Tıklandı)</div>
+                            <div class="h3 mb-0 fw-bold">{{ stats.read }}</div>
+                        </div>
+                        <div class="col-auto"><i class="fa-solid fa-hand-pointer fa-2x text-dark" style="opacity: 0.3;"></i></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-xl-3 col-md-6 mb-4">
+            <div class="card stat-card bg-danger text-white h-100 py-2">
+                <div class="card-body">
+                    <div class="row no-gutters align-items-center">
+                        <div class="col mr-2">
+                            <div class="text-xs fw-bold text-uppercase mb-1" style="opacity: 0.8;">Hatalı / Atlandı</div>
+                            <div class="h3 mb-0 fw-bold">{{ stats.error + stats.skipped }}</div>
+                        </div>
+                        <div class="col-auto"><i class="fa-solid fa-triangle-exclamation fa-2x text-white-50"></i></div>
+                    </div>
+                </div>
+            </div>
         </div>
     </div>
 
-</div>
+    <div class="row mb-4">
+        <div class="col-lg-8">
+            <div class="card shadow-sm h-100">
+                <div class="card-header bg-white fw-bold"><i class="fa-solid fa-chart-area text-primary me-2"></i>Son 7 Günlük Gönderim Trendi</div>
+                <div class="card-body">
+                    <div style="height: 250px;"><canvas id="trendChart"></canvas></div>
+                </div>
+            </div>
+        </div>
+        <div class="col-lg-4 mt-4 mt-lg-0">
+            <div class="card shadow-sm h-100">
+                <div class="card-header bg-white fw-bold"><i class="fa-solid fa-chart-pie text-success me-2"></i>Etkileşim Analizi</div>
+                <div class="card-body d-flex justify-content-center align-items-center">
+                    <div style="height: 250px; width: 100%;"><canvas id="pieChart"></canvas></div>
+                </div>
+            </div>
+        </div>
+    </div>
 
-            <div class="tab-pane fade" id="tab-settings">
-                <form action="/save_settings" method="POST">
+    <div class="row">
+        <div class="col-lg-8 mb-4">
+            <div class="card h-100">
+                <div class="card-header bg-white">
+                    <h5 class="mb-0 fw-bold text-dark"><i class="fa-solid fa-pen-to-square text-primary me-2"></i>Yeni Kampanya Oluştur</h5>
+                </div>
+                <div class="card-body p-4">
+                    <form method="POST" action="/send_mail" enctype="multipart/form-data" id="mailForm">
+                        <div class="mb-3">
+                            <label class="form-label fw-bold small text-dark">E-Posta Konusu</label>
+                            <input type="text" name="subject" class="form-control form-control-lg" placeholder="Örn: Yeni Yazılım Güncellemesi" required>
+                        </div>
+                        <div class="mb-4">
+                            <div class="d-flex justify-content-between align-items-center mb-1">
+                                <label class="form-label fw-bold small text-dark m-0"><i class="fa-solid fa-align-left me-1 text-primary"></i>Mesaj İçeriği</label>
+                                <span class="badge bg-light text-primary border"><i class="fa-solid fa-wand-magic-sparkles me-1"></i> İsim etiketi: <b>{isim}</b></span>
+                            </div>
+                            <textarea name="body" id="editor" class="form-control"></textarea>
+                        </div>
+                        <div class="row bg-light p-3 rounded border mb-4 mx-0">
+                            <div class="col-md-6 mb-3 mb-md-0">
+                                <label class="form-label fw-bold small text-dark"><i class="fa-solid fa-paperclip me-1"></i>Dosya Ekleri (Çoklu)</label>
+                                <input type="file" name="attachment" class="form-control" multiple>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label fw-bold small text-dark"><i class="fa-solid fa-clock me-1 text-warning"></i>Gönderim Zamanı</label>
+                                <input type="datetime-local" id="send_time" name="send_time" class="form-control" required>
+                            </div>
+                        </div>
+                        <div class="row bg-light p-3 rounded border mb-4 mx-0 border-primary">
+                            <div class="col-md-6 mb-3 mb-md-0">
+                                <label class="form-label fw-bold small text-dark"><i class="fa-solid fa-link me-1 text-danger"></i>Hedef Link (Tıklama Takibi İçin Şart)</label>
+                                <input type="url" name="video_link" class="form-control" placeholder="https://siteniz.com/kampanya">
+                                <div class="form-text small text-primary fw-bold">DİKKAT: Kullanıcı bu linke tıkladığında sistem 'Okundu' olarak kaydeder.</div>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label fw-bold small text-dark"><i class="fa-regular fa-image me-1 text-success"></i>Tıklanabilir Kampanya Görseli (Opsiyonel)</label>
+                                <input type="file" name="video_cover" class="form-control" accept="image/*">
+                            </div>
+                        </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-lg-4 mb-4">
+            <div class="card h-100 border-primary shadow-sm">
+                <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
+                    <h6 class="mb-0 fw-bold"><i class="fa-solid fa-users-viewfinder me-2"></i>Alıcı Listesi</h6>
+                    <a href="{{ url_for('contacts') }}" class="btn btn-sm btn-light text-primary fw-bold"><i class="fa-solid fa-address-book"></i> Rehber</a>
+                </div>
+                <div class="card-body p-4 bg-light d-flex flex-column">
+                    <div class="mb-4">
+                        <label class="form-label fw-bold small text-dark"><i class="fa-solid fa-users me-1 text-primary"></i>Rehberden Grup Ekle</label>
+                        <select id="groupSelector" class="form-select border-primary shadow-sm">
+                            <option value="" selected disabled>-- Hızlı Aktarım İçin Grup Seçin --</option>
+                            {% for g in groups %}
+                                <option value="{{ g[0] }}">{{ g[1] }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="flex-grow-1 mb-4">
+                        <label class="form-label fw-bold small text-dark"><i class="fa-solid fa-at me-1 text-primary"></i>Gönderilecek E-Postalar</label>
+                        <textarea name="recipients" class="form-control font-monospace border-secondary shadow-sm h-100" style="min-height: 150px; font-size: 0.9rem;" placeholder="ornek@mail.com" required></textarea>
+                    </div>
+                    <button type="submit" form="mailForm" class="btn btn-success btn-lg w-100 fw-bold shadow"><i class="fa-solid fa-rocket me-2"></i>KAMPANYAYI BAŞLAT</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="card mb-5">
+        <div class="card-header bg-white p-0 border-bottom">
+            <ul class="nav nav-tabs" id="myTab" role="tablist">
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link active" data-bs-toggle="tab" data-bs-target="#logs" type="button"><i class="fa-solid fa-list-check me-2"></i>Gönderim Geçmişi</button>
+                </li>
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link" data-bs-toggle="tab" data-bs-target="#settings" type="button"><i class="fa-solid fa-gears me-2"></i>SMTP ve API Ayarları</button>
+                </li>
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link text-danger" data-bs-toggle="tab" data-bs-target="#blacklist" type="button"><i class="fa-solid fa-ban me-2"></i>Kara Liste</button>
+                </li>
+            </ul>
+        </div>
+        <div class="card-body p-4">
+            <div class="tab-content" id="myTabContent">
+
+                <div class="tab-pane fade show active" id="logs">
+                    <div class="table-responsive">
+                        <table class="table table-hover align-middle small">
+                            <thead class="table-light text-muted">
+                                <tr>
+                                    <th>Tarih</th>
+                                    <th>Alıcı</th>
+                                    <th>Konu</th>
+                                    <th>Durum</th>
+                                    <th>Detay</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for log in logs %}
+                                <tr>
+                                    <td>{{ log[2] }}</td>
+                                    <td class="fw-bold">{{ log[3] }}</td>
+                                    <td>{{ log[4] }}</td>
+                                    <td>
+                                        {% if log[5] == 'İletildi (Okunmadı)' %} <span class="badge bg-secondary"><i class="fa-regular fa-envelope me-1"></i> İletildi</span>
+                                        {% elif log[5] == 'Okundu' %} <span class="badge bg-info text-dark shadow-sm"><i class="fa-solid fa-envelope-open-text me-1"></i> Tıklandı</span>
+                                        {% elif log[5] == 'Gönderiliyor...' %} <span class="badge bg-warning text-dark">Kuyrukta</span>
+                                        {% elif log[5] == 'Atlandı' %} <span class="badge bg-dark">Kara Liste</span>
+                                        {% else %} <span class="badge bg-danger">Hata</span> {% endif %}
+                                    </td>
+                                    <td class="text-muted">{{ log[6] }}</td>
+                                </tr>
+                                {% else %}
+                                <tr><td colspan="5" class="text-center py-3">Henüz gönderim yapılmadı.</td></tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <div class="tab-pane fade" id="settings">
                     <div class="row">
-                        <div class="col-md-6 mb-3">
-                            <label class="form-label">SMTP Sunucu (Örn: smtp.gmail.com)</label>
-                            <input type="text" class="form-control" name="smtp_host" value="{{ settings[2] if settings else '' }}">
+                        <div class="col-lg-6 border-end pe-lg-4 mb-4 mb-lg-0">
+                            <h6 class="fw-bold text-primary mb-3"><i class="fa-solid fa-envelope me-2"></i>SMTP Sunucu Ayarları</h6>
+                            <form method="POST" action="/save_settings" class="row">
+                                <div class="col-md-6 mb-3">
+                                    <label class="form-label small fw-bold">SMTP Sunucusu</label>
+                                    <input type="text" name="smtp_host" class="form-control" value="{{ settings[2] if settings else '' }}" required>
+                                </div>
+                                <div class="col-md-6 mb-3">
+                                    <label class="form-label small fw-bold">SMTP Portu</label>
+                                    <input type="text" name="smtp_port" class="form-control" value="{{ settings[3] if settings else '' }}" required>
+                                </div>
+                                <div class="col-md-6 mb-3">
+                                    <label class="form-label small fw-bold">Gönderici E-Posta</label>
+                                    <input type="email" name="smtp_user" class="form-control" value="{{ settings[4] if settings else '' }}" required>
+                                </div>
+                                <div class="col-md-6 mb-3">
+                                    <label class="form-label small fw-bold">Uygulama Şifresi</label>
+                                    <input type="password" name="smtp_pass" class="form-control" value="{{ settings[5] if settings else '' }}" required>
+                                </div>
+                                <div class="col-12 mt-2">
+                                    <button type="submit" class="btn btn-primary"><i class="fa-solid fa-floppy-disk me-1"></i> Ayarları Kaydet</button>
+                                </div>
+                            </form>
                         </div>
-                        <div class="col-md-6 mb-3">
-                            <label class="form-label">Port (Örn: 587)</label>
-                            <input type="text" class="form-control" name="smtp_port" value="{{ settings[3] if settings else '587' }}">
-                        </div>
-                        <div class="col-md-6 mb-3">
-                            <label class="form-label">E-Posta Adresi</label>
-                            <input type="email" class="form-control" name="smtp_user" value="{{ settings[4] if settings else '' }}">
-                        </div>
-                        <div class="col-md-6 mb-3">
-                            <label class="form-label">Şifre / Uygulama Şifresi</label>
-                            <input type="password" class="form-control" name="smtp_pass" value="{{ settings[5] if settings else '' }}">
+
+                        <div class="col-lg-6 ps-lg-4">
+                            <h6 class="fw-bold text-success mb-3"><i class="fa-solid fa-code me-2"></i>Geliştirici API Entegrasyonu</h6>
+                            <p class="small text-muted mb-3">EstCrm veya kendi web siteniz üzerinden kod yazarak otomatik mail fırlatmak için bu anahtarı kullanın.</p>
+
+                            <div class="mb-3">
+                                <label class="form-label small fw-bold text-dark">Güvenlik Anahtarınız (X-API-KEY)</label>
+                                <div class="input-group">
+                                    <input type="text" class="form-control bg-light font-monospace text-danger fw-bold" value="{{ api_key if api_key else 'Henüz oluşturulmadı' }}" readonly>
+                                    <form method="POST" action="/generate_api_key">
+                                        <button class="btn btn-outline-dark" type="submit" title="Yeni Üret"><i class="fa-solid fa-rotate"></i></button>
+                                    </form>
+                                </div>
+                            </div>
+
+                            {% if api_key %}
+                            <div class="api-box small mt-3">
+                                <div class="mb-1 text-light fw-bold"># Python Örnek Kullanım (EstCrm İçin)</div>
+                                <div><span class="api-keyword">import</span> requests</div>
+                                <div><span class="api-keyword">import</span> json</div>
+                                <br>
+                                <div>url = <span class="api-string">"{{ request.host_url }}api/send"</span></div>
+                                <div>headers = {<span class="api-string">"X-API-KEY"</span>: <span class="api-string">"{{ api_key }}"</span>, <span class="api-string">"Content-Type"</span>: <span class="api-string">"application/json"</span>}</div>
+                                <div>payload = {</div>
+                                <div class="ms-3"><span class="api-string">"to"</span>: [<span class="api-string">"musteri@sirket.com"</span>],</div>
+                                <div class="ms-3"><span class="api-string">"subject"</span>: <span class="api-string">"Faturanız Kesildi"</span>,</div>
+                                <div class="ms-3"><span class="api-string">"body"</span>: <span class="api-string">"&lt;h1&gt;Merhaba&lt;/h1&gt; Faturanız ektedir."</span></div>
+                                <div>}</div>
+                                <br>
+                                <div>response = requests.post(url, headers=headers, json=payload)</div>
+                            </div>
+                            {% endif %}
                         </div>
                     </div>
-                    <button type="submit" class="btn btn-primary mt-3">💾 Ayarları Kaydet</button>
-                </form>
-            </div>
+                </div>
 
+                <div class="tab-pane fade" id="blacklist">
+                    <div class="row">
+                        <div class="col-md-5 border-end pe-4">
+                            <form method="POST" action="/add_blacklist">
+                                <label class="form-label fw-bold small text-danger">Engellenecek E-Postalar</label>
+                                <textarea name="blacklist_emails" class="form-control mb-3" rows="4" required></textarea>
+                                <button type="submit" class="btn btn-danger w-100 fw-bold"><i class="fa-solid fa-ban me-1"></i> Kara Listeye Ekle</button>
+                            </form>
+                        </div>
+                        <div class="col-md-7 ps-4">
+                            <h6 class="fw-bold mb-3 text-muted">Mevcut Kara Liste</h6>
+                            <div class="d-flex flex-wrap gap-2">
+                                {% for b in blacklist %}
+                                <span class="badge bg-light text-dark border p-2 shadow-sm d-flex align-items-center">
+                                    {{ b[2] }} <a href="/remove_blacklist/{{ b[0] }}" class="text-danger ms-2"><i class="fa-solid fa-xmark"></i></a>
+                                </span>
+                                {% endfor %}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
         </div>
     </div>
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+<script src="https://cdn.ckeditor.com/ckeditor5/39.0.1/classic/ckeditor.js"></script>
+
+<script>
+    ClassicEditor.create(document.querySelector('#editor'), {
+        toolbar: [ 'heading', '|', 'bold', 'italic', 'link', 'bulletedList', 'numberedList', 'blockQuote' ]
+    }).catch(error => { console.error(error); });
+
+    window.addEventListener('load', () => {
+        const now = new Date();
+        now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
+        document.getElementById('send_time').value = now.toISOString().slice(0, 16);
+    });
+
+    document.getElementById('groupSelector').addEventListener('change', function() {
+        const groupId = this.value;
+        if (!groupId) return;
+        fetch(`/api/get_group_emails/${groupId}`)
+            .then(response => response.json())
+            .then(data => {
+                const textarea = document.querySelector('textarea[name="recipients"]');
+                const existingEmails = textarea.value.trim();
+                const newEmails = data.emails.join('\n');
+                if (existingEmails) textarea.value = existingEmails + '\n' + newEmails;
+                else textarea.value = newEmails;
+                this.value = '';
+            });
+    });
+
+    // --- CHART.JS GRAFİKLERİ ---
+    const trendCtx = document.getElementById('trendChart').getContext('2d');
+    new Chart(trendCtx, {
+        type: 'line',
+        data: {
+            labels: {{ stats.trend_labels | safe }},
+            datasets: [{
+                label: 'İşlem Gören Mail',
+                data: {{ stats.trend_counts | safe }},
+                borderColor: '#2980b9',
+                backgroundColor: 'rgba(41, 128, 185, 0.15)',
+                borderWidth: 3,
+                pointBackgroundColor: '#2c3e50',
+                pointRadius: 4,
+                fill: true,
+                tension: 0.4
+            }]
+        },
+        options: {
+            responsive: true, maintainAspectRatio: false,
+            plugins: { legend: { display: false } },
+            scales: { y: { beginAtZero: true, ticks: { stepSize: 1 } } }
+        }
+    });
+
+    const pieCtx = document.getElementById('pieChart').getContext('2d');
+    new Chart(pieCtx, {
+        type: 'doughnut',
+        data: {
+            labels: ['Okunmadı', 'Tıklandı', 'Hatalı', 'Atlandı'],
+            datasets: [{
+                data: [{{ stats.unread }}, {{ stats.read }}, {{ stats.error }}, {{ stats.skipped }}],
+                backgroundColor: ['#95a5a6', '#3498db', '#e74c3c', '#2c3e50'],
+                borderWidth: 0,
+                hoverOffset: 4
+            }]
+        },
+        options: {
+            responsive: true, maintainAspectRatio: false, cutout: '75%',
+            plugins: { legend: { position: 'bottom' } }
+        }
+    });
+</script>
+
 </body>
 </html>
