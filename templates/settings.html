@@ -1,0 +1,124 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="row">
+
+    <div class="col-lg-6 mb-4">
+        <div class="card shadow-sm border-0 h-100">
+            <div class="card-header bg-white py-3">
+                <h5 class="mb-0 fw-bold text-dark"><i class="fa-solid fa-server text-primary me-2"></i>Sistem & SMTP Ayarları</h5>
+            </div>
+            <div class="card-body p-4">
+                <form method="POST" action="/save_settings">
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label small fw-bold text-secondary">SMTP Sunucusu</label>
+                            <input type="text" name="smtp_host" class="form-control" value="{{ settings[2] if settings else '' }}" placeholder="örn: smtp.gmail.com" required>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label small fw-bold text-secondary">SMTP Portu</label>
+                            <input type="text" name="smtp_port" class="form-control" value="{{ settings[3] if settings else '' }}" placeholder="örn: 587" required>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label small fw-bold text-secondary">Gönderici E-Posta</label>
+                            <input type="email" name="smtp_user" class="form-control" value="{{ settings[4] if settings else '' }}" required>
+                        </div>
+                        <div class="col-md-6 mb-4">
+                            <label class="form-label small fw-bold text-secondary">Uygulama Şifresi</label>
+                            <input type="password" name="smtp_pass" class="form-control" value="{{ settings[5] if settings else '' }}" required>
+                        </div>
+                    </div>
+
+                    <hr class="text-muted mb-4">
+
+                    <div class="mb-4">
+                        <label class="form-label fw-bold text-success"><i class="fa-solid fa-satellite-dish me-2"></i>Canlı Webhook URL (Opsiyonel)</label>
+
+                        {% if current_user.is_admin == 1 or current_user.plan_type == 'pro' %}
+                            <input type="url" name="webhook_url" class="form-control border-success bg-light" placeholder="https://estcrm.com/api/mail_okundu" value="{{ settings[6] if settings and settings|length > 6 else '' }}">
+                            <div class="form-text small mt-2">Müşterileriniz gönderdiğiniz maillerdeki linklere tıkladığı an (Okundu durumu), yazdığınız bu adrese anında JSON formatında bir POST sinyali fırlatılır.</div>
+                        {% else %}
+                            <div class="alert alert-light border shadow-sm text-center py-3">
+                                <i class="fa-solid fa-lock text-muted fa-2x mb-2"></i>
+                                <h6 class="fw-bold text-dark">Webhook Kapalı</h6>
+                                <p class="small text-muted mb-0">Canlı bildirim almak ve diğer sistemlerle konuşmak için lütfen <b>PRO Pakete</b> geçin.</p>
+                            </div>
+                        {% endif %}
+                    </div>
+
+                    <button type="submit" class="btn btn-primary w-100 fw-bold py-2"><i class="fa-solid fa-floppy-disk me-2"></i>Tüm Ayarları Kaydet</button>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-lg-6 mb-4">
+
+        <div class="card shadow-sm border-0 mb-4 border-start border-4 border-warning">
+            <div class="card-header bg-white py-3">
+                <h5 class="mb-0 fw-bold text-dark"><i class="fa-solid fa-code text-warning me-2"></i>Geliştirici API Entegrasyonu</h5>
+            </div>
+            <div class="card-body p-4">
+
+                {% if current_user.is_admin == 1 or current_user.plan_type == 'pro' %}
+                    <p class="small text-muted mb-3">EstCrm veya kendi web siteniz üzerinden kod yazarak otomatik mail fırlatmak (Tetiklemek) için aşağıdaki anahtarı kullanın.</p>
+
+                    <label class="form-label small fw-bold text-dark">Güvenlik Anahtarınız (X-API-KEY)</label>
+                    <div class="input-group mb-4">
+                        <input type="text" class="form-control bg-light font-monospace text-danger fw-bold" value="{{ api_key if api_key else 'Henüz oluşturulmadı' }}" readonly>
+                        <form method="POST" action="/generate_api_key">
+                            <button class="btn btn-outline-dark" type="submit" title="Yeni Üret"><i class="fa-solid fa-rotate"></i></button>
+                        </form>
+                    </div>
+
+                    <h6 class="fw-bold small text-primary mb-2"><i class="fa-solid fa-book me-1"></i> EstCrm İçin Örnek PHP Webhook Yakalama Kodu:</h6>
+                    <div class="bg-dark text-light p-3 rounded small font-monospace" style="line-height: 1.6;">
+                        <span class="text-success">// EST Mail'den gelen canlı 'Okundu' sinyalini yakala:</span><br>
+                        $payload = json_decode(file_get_contents('php://input'), true);<br><br>
+                        <span class="text-warning">if</span> ($payload['event'] == <span class="text-info">'email_opened'</span>) {<br>
+                        &nbsp;&nbsp;&nbsp;&nbsp;$mail_adresi = $payload['email'];<br>
+                        &nbsp;&nbsp;&nbsp;&nbsp;$okunma_zamani = $payload['timestamp'];<br><br>
+                        &nbsp;&nbsp;&nbsp;&nbsp;<span class="text-success">// EstCrm Veritabanında güncelle:</span><br>
+                        &nbsp;&nbsp;&nbsp;&nbsp;$db->query("UPDATE faturalar SET durum='Okundu' WHERE musteri_mail='$mail_adresi'");<br>
+                        }
+                    </div>
+                {% else %}
+                    <div class="alert alert-light border shadow-sm text-center py-4 my-3">
+                        <i class="fa-solid fa-code text-muted fa-3x mb-3"></i>
+                        <h5 class="fw-bold text-dark">Geliştirici Özellikleri Kilitli</h5>
+                        <p class="text-muted mb-0">REST API kullanarak sistem dışından otomatik mail göndermek <b>PRO Paket</b> ayrıcalığıdır.</p>
+                    </div>
+                {% endif %}
+
+            </div>
+        </div>
+
+        <div class="card shadow-sm border-0 border-start border-4 border-danger">
+            <div class="card-header bg-white py-3">
+                <h5 class="mb-0 fw-bold text-dark"><i class="fa-solid fa-ban text-danger me-2"></i>Kara Liste Yönetimi</h5>
+            </div>
+            <div class="card-body p-4">
+                <form method="POST" action="/add_blacklist" class="mb-4">
+                    <label class="form-label fw-bold small text-secondary">Manuel Engellenecek E-Postalar</label>
+                    <div class="input-group">
+                        <input type="email" name="blacklist_emails" class="form-control" placeholder="ornek@mail.com" required>
+                        <button type="submit" class="btn btn-danger fw-bold"><i class="fa-solid fa-plus me-1"></i> Ekle</button>
+                    </div>
+                </form>
+
+                <div class="d-flex flex-wrap gap-2" style="max-height: 150px; overflow-y: auto;">
+                    {% for b in blacklist %}
+                    <span class="badge bg-light text-dark border p-2 shadow-sm d-flex align-items-center">
+                        {{ b[2] }}
+                        <a href="/remove_blacklist/{{ b[0] }}" class="text-danger ms-2" title="Engeli Kaldır"><i class="fa-solid fa-xmark"></i></a>
+                    </span>
+                    {% else %}
+                    <span class="text-muted small italic">Kara listede kayıtlı e-posta bulunmuyor.</span>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+
+    </div>
+</div>
+{% endblock %}

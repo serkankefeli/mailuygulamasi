@@ -1,0 +1,61 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="row">
+    <div class="col-12">
+        <div class="card shadow-sm border-0">
+            <div class="card-header bg-white d-flex justify-content-between align-items-center py-3">
+                <h5 class="mb-0 fw-bold text-dark"><i class="fa-solid fa-list-check text-primary me-2"></i>Detaylı Gönderim Geçmişi</h5>
+                <a href="{{ url_for('export_logs') }}" class="btn btn-success btn-sm fw-bold shadow-sm">
+                    <i class="fa-solid fa-file-excel me-1"></i> Tümünü Excel İndir
+                </a>
+            </div>
+            <div class="card-body p-0">
+                <div class="table-responsive">
+                    <table class="table table-hover align-middle small mb-0">
+                        <thead class="table-light text-muted">
+                            <tr>
+                                <th class="ps-4 py-3">İşlem Tarihi</th>
+                                <th>Alıcı E-Posta</th>
+                                <th>Kampanya Konusu</th>
+                                <th>İletim Durumu</th>
+                                <th>Sistem Notu / Detay</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for log in logs %}
+                            <tr>
+                                <td class="ps-4">{{ log[2] }}</td>
+                                <td class="fw-bold text-dark">{{ log[3] }}</td>
+                                <td class="text-secondary">{{ log[4] }}</td>
+                                <td>
+                                    {% if log[5] == 'İletildi (Okunmadı)' %}
+                                        <span class="badge bg-secondary"><i class="fa-regular fa-envelope me-1"></i> İletildi</span>
+                                    {% elif log[5] == 'Okundu' %}
+                                        <span class="badge bg-info text-dark shadow-sm"><i class="fa-solid fa-envelope-open-text me-1"></i> Tıklandı</span>
+                                    {% elif log[5] == 'Gönderiliyor...' %}
+                                        <span class="badge bg-warning text-dark">Kuyrukta</span>
+                                    {% elif log[5] == 'Atlandı' %}
+                                        <span class="badge bg-dark">Kara Liste</span>
+                                    {% else %}
+                                        <span class="badge bg-danger">Hata</span>
+                                    {% endif %}
+                                </td>
+                                <td class="text-muted"><small>{{ log[6] }}</small></td>
+                            </tr>
+                            {% else %}
+                            <tr>
+                                <td colspan="5" class="text-center py-5 text-muted">
+                                    <i class="fa-solid fa-inbox fa-3x mb-3 text-light"></i><br>
+                                    Henüz hiçbir gönderim yapılmadı.
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
