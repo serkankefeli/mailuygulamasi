@@ -17,7 +17,7 @@ from email import encoders
 
 app = Flask(__name__)
 app.secret_key = "cok_gizli_bir_anahtar_buraya"
-DB_NAME = 'web_mailer_v6.db'  # V6: E-Posta ile giriş ve Profil sistemi
+DB_NAME = 'web_mailer_v6.db'
 UPLOAD_FOLDER = 'uploads'
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
@@ -27,23 +27,30 @@ login_manager.init_app(app)
 login_manager.login_view = 'login'
 
 
-# KULLANICI ADI YERİNE AD SOYAD VE EMAIL GELDİ
 class User(UserMixin):
-    def __init__(self, id, ad_soyad, is_admin, email):
+    def __init__(self, id, ad_soyad, is_admin, email, is_blocked=0):
         self.id = id
         self.ad_soyad = ad_soyad
         self.is_admin = is_admin
         self.email = email
+        self.is_blocked = is_blocked
 
 
 @login_manager.user_loader
 def load_user(user_id):
     conn = sqlite3.connect(DB_NAME)
     cursor = conn.cursor()
-    cursor.execute("SELECT id, ad_soyad, is_admin, email FROM users WHERE id = ?", (user_id,))
+    # YENİ: is_blocked sütunu eklendi
+    try:
+        cursor.execute("SELECT id, ad_soyad, is_admin, email, is_blocked FROM users WHERE id = ?", (user_id,))
+    except sqlite3.OperationalError:
+        cursor.execute("SELECT id, ad_soyad, is_admin, email FROM users WHERE id = ?", (user_id,))
+
     u = cursor.fetchone()
     conn.close()
-    if u: return User(id=u[0], ad_soyad=u[1], is_admin=u[2], email=u[3])
+    if u:
+        is_blocked = u[4] if len(u) > 4 and u[4] is not None else 0
+        return User(id=u[0], ad_soyad=u[1], is_admin=u[2], email=u[3], is_blocked=is_blocked)
     return None
 
 
@@ -59,7 +66,12 @@ def init_db():
     cursor.execute(
         '''CREATE TABLE IF NOT EXISTS settings (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id INTEGER UNIQUE, host TEXT, port TEXT, user_email TEXT, password TEXT)''')
 
-    # Varsayılan Admin (Artık e-posta ile giriş yapacak: admin@sistem.com)
+    # YENİ: Eski veritabanını bozmadan engelleme sütunu ekliyoruz
+    try:
+        cursor.execute("ALTER TABLE users ADD COLUMN is_blocked INTEGER DEFAULT 0")
+    except sqlite3.OperationalError:
+        pass  # Sütun zaten varsa hata verme
+
     cursor.execute("SELECT * FROM users WHERE email = 'admin@sistem.com'")
     if not cursor.fetchone():
         cursor.execute("INSERT INTO users (ad_soyad, email, password_hash, is_admin) VALUES (?, ?, ?, 1)",
@@ -68,17 +80,6 @@ def init_db():
     conn.close()
 
 
-def log_to_db(user_id, alici, konu, durum, detay=""):
-    conn = sqlite3.connect(DB_NAME)
-    cursor = conn.cursor()
-    tarih = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-    cursor.execute("INSERT INTO logs (user_id, tarih, alici, konu, durum, detay) VALUES (?, ?, ?, ?, ?, ?)",
-                   (user_id, tarih, alici, konu, durum, detay))
-    conn.commit()
-    conn.close()
-
-
-# --- MAİL MOTORU (Aynı Kaldı) ---
 def background_mailer(user_id, email_list, subject, body, attachment_paths, video_link, cover_path, settings):
     host, port, sender_email, sender_pass = settings[2], settings[3], settings[4], settings[5]
     conn = sqlite3.connect(DB_NAME)
@@ -157,7 +158,6 @@ def background_mailer(user_id, email_list, subject, body, attachment_paths, vide
         print("Sunucu Hatası:", e)
 
 
-# --- YENİ: E-POSTA İLE GİRİŞ EKRANLARI ---
 @app.route('/', methods=['GET', 'POST'])
 def login():
     if current_user.is_authenticated:
@@ -165,25 +165,184 @@ def login():
         return redirect(url_for('dashboard'))
 
     if request.method == 'POST':
-        email = request.form['email'].strip().lower()  # Username yerine email
+        email = request.form['email'].strip().lower()
         password = request.form['password']
         conn = sqlite3.connect(DB_NAME)
         cursor = conn.cursor()
-        cursor.execute("SELECT id, ad_soyad, password_hash, is_admin, email FROM users WHERE email = ?", (email,))
+
+        try:
+            cursor.execute("SELECT id, ad_soyad, password_hash, is_admin, email, is_blocked FROM users WHERE email = ?",
+                           (email,))
+        except sqlite3.OperationalError:
+            cursor.execute("SELECT id, ad_soyad, password_hash, is_admin, email FROM users WHERE email = ?", (email,))
+
         user_data = cursor.fetchone()
-        conn.close()
 
         if user_data and check_password_hash(user_data[2], password):
+            is_blocked = user_data[5] if len(user_data) > 5 and user_data[5] is not None else 0
+
+            # YENİ: Engelli kullanıcı kontrolü
+            if is_blocked == 1:
+                flash('Hesabınız sistem yöneticisi tarafından geçici olarak dondurulmuştur.', 'danger')
+                conn.close()
+                return redirect(url_for('login'))
+
             if user_data[3] == 1:
                 flash('Güvenlik İhlali: Yönetici hesapları standart sayfadan giriş yapamaz!', 'danger')
+                conn.close()
                 return redirect(url_for('login'))
-            login_user(User(id=user_data[0], ad_soyad=user_data[1], is_admin=user_data[3], email=user_data[4]))
-            return redirect(url_for('dashboard'))
+
+            cursor.execute(
+                "SELECT host, port, user_email, password FROM settings WHERE user_id = (SELECT id FROM users WHERE is_admin = 1 LIMIT 1)")
+            admin_settings = cursor.fetchone()
+
+            if not admin_settings or not admin_settings[2]:
+                login_user(User(id=user_data[0], ad_soyad=user_data[1], is_admin=user_data[3], email=user_data[4],
+                                is_blocked=is_blocked))
+                conn.close()
+                return redirect(url_for('dashboard'))
+
+            auth_code = str(random.randint(100000, 999999))
+            cursor.execute("UPDATE users SET auth_code=? WHERE id=?", (auth_code, user_data[0]))
+            conn.commit()
+            conn.close()
+
+            try:
+                host, port, sender_email, sender_pass = admin_settings
+                server = smtplib.SMTP(host, int(port), timeout=5)
+                server.starttls()
+                server.login(sender_email, sender_pass)
+                msg = MIMEMultipart()
+                msg['From'] = sender_email
+                msg['To'] = email
+                msg['Subject'] = "Sisteme Giriş Doğrulama Kodu"
+                msg.attach(MIMEText(f"Doğrulama kodunuz: {auth_code}", 'plain'))
+                server.send_message(msg)
+                server.quit()
+                session['pending_user_id'] = user_data[0]
+                return redirect(url_for('verify_2fa'))
+            except Exception:
+                flash('Doğrulama e-postası gönderilemedi.', 'danger')
+                return redirect(url_for('login'))
         else:
+            conn.close()
             flash('E-Posta veya şifre hatalı!', 'danger')
+
     return render_template('login.html')
 
 
+# --- YENİ: ŞİFREMİ UNUTTUM ROTALARI ---
+@app.route('/forgot-password', methods=['GET', 'POST'])
+def forgot_password():
+    if request.method == 'POST':
+        email = request.form['email'].strip().lower()
+        conn = sqlite3.connect(DB_NAME)
+        cursor = conn.cursor()
+        cursor.execute("SELECT id, ad_soyad FROM users WHERE email=?", (email,))
+        user = cursor.fetchone()
+
+        if user:
+            cursor.execute(
+                "SELECT host, port, user_email, password FROM settings WHERE user_id = (SELECT id FROM users WHERE is_admin = 1 LIMIT 1)")
+            admin_settings = cursor.fetchone()
+
+            if admin_settings and admin_settings[2]:
+                reset_code = str(random.randint(100000, 999999))
+                cursor.execute("UPDATE users SET auth_code=? WHERE id=?", (reset_code, user[0]))
+                conn.commit()
+
+                try:
+                    host, port, sender_email, sender_pass = admin_settings
+                    server = smtplib.SMTP(host, int(port), timeout=5)
+                    server.starttls()
+                    server.login(sender_email, sender_pass)
+
+                    msg = MIMEMultipart()
+                    msg['From'] = sender_email
+                    msg['To'] = email
+                    msg['Subject'] = "Şifre Sıfırlama Kodu"
+                    msg.attach(MIMEText(f"Şifrenizi sıfırlamak için 6 haneli kodunuz: {reset_code}", 'plain'))
+
+                    server.send_message(msg)
+                    server.quit()
+
+                    session['reset_email'] = email
+                    conn.close()
+                    flash('Sıfırlama kodu e-posta adresinize gönderildi.', 'success')
+                    return redirect(url_for('reset_password'))
+                except Exception:
+                    flash('Mail gönderilemedi, SMTP ayarlarında sorun var.', 'danger')
+            else:
+                flash('Sistem e-posta ayarları yapılmadığı için şifre sıfırlama kullanılamaz.', 'danger')
+        else:
+            flash('Bu e-posta adresine kayıtlı bir hesap bulunamadı.', 'danger')
+        conn.close()
+    return render_template('forgot_password.html')
+
+
+# --- ŞİFRE YENİLEME ROTASI ---
+@app.route('/reset-password', methods=['GET', 'POST'])
+def reset_password():
+    if 'reset_email' not in session: return redirect(url_for('forgot_password'))
+
+    if request.method == 'POST':
+        code = request.form['code'].strip()
+        new_password = request.form['new_password']
+        email = session['reset_email']
+
+        conn = sqlite3.connect(DB_NAME)
+        cursor = conn.cursor()
+        cursor.execute("SELECT id, auth_code FROM users WHERE email=?", (email,))
+        user = cursor.fetchone()
+
+        # MUCİZE BURADA: İki tarafı da str() ile zorla metne çevirip eşleştiriyoruz!
+        if user and str(user[1]) == str(code):
+            hashed_pw = generate_password_hash(new_password)
+            cursor.execute("UPDATE users SET password_hash=?, auth_code=NULL WHERE id=?", (hashed_pw, user[0]))
+            conn.commit()
+            conn.close()
+            session.pop('reset_email', None)
+            flash('Şifreniz başarıyla güncellendi! Yeni şifrenizle giriş yapabilirsiniz.', 'success')
+            return redirect(url_for('login'))
+        else:
+            conn.close()
+            # Olası bir hatada terminale kırmızı uyarı fırlatacak ajan:
+            print(f"--- ŞİFRE SIFIRLAMA HATASI --- Beklenen: {user[1]} | Girilen: {code}")
+            flash('Geçersiz doğrulama kodu.', 'danger')
+
+    return render_template('reset_password.html')
+
+# --- YENİ: KULLANICI ENGELLEME ROTASI ---
+@app.route('/admin/toggle_block/<int:id>')
+@login_required
+def toggle_block(id):
+    if current_user.is_admin != 1: return redirect(url_for('dashboard'))
+    if id == current_user.id:
+        flash('Kendinizi engelleyemezsiniz!', 'danger')
+        return redirect(url_for('admin_users'))
+
+    conn = sqlite3.connect(DB_NAME)
+    cursor = conn.cursor()
+    try:
+        cursor.execute("SELECT is_blocked, ad_soyad FROM users WHERE id=?", (id,))
+    except sqlite3.OperationalError:
+        flash('Lütfen sistemi yeniden başlatın (Veritabanı güncelleniyor).', 'warning')
+        return redirect(url_for('admin_users'))
+
+    user = cursor.fetchone()
+    mevcut_durum = user[0] if user[0] is not None else 0
+    yeni_durum = 1 if mevcut_durum == 0 else 0
+
+    cursor.execute("UPDATE users SET is_blocked=? WHERE id=?", (yeni_durum, id))
+    conn.commit()
+    conn.close()
+
+    mesaj = "engellendi, sisteme giriş yapamayacak." if yeni_durum == 1 else "engeli kaldırıldı."
+    flash(f'{user[1]} adlı kullanıcının {mesaj}', 'warning')
+    return redirect(url_for('admin_users'))
+
+
+# --- DİĞER ROTALAR (Admin_login, Profile, Admin_users vb.) ---
 @app.route('/gizli-kapi', methods=['GET', 'POST'])
 def admin_login():
     if current_user.is_authenticated and current_user.is_admin == 1: return redirect(url_for('admin_users'))
@@ -192,18 +351,98 @@ def admin_login():
         password = request.form['password']
         conn = sqlite3.connect(DB_NAME)
         cursor = conn.cursor()
-        cursor.execute(
-            "SELECT id, ad_soyad, password_hash, is_admin, email FROM users WHERE email = ? AND is_admin = 1", (email,))
+
+        try:
+            cursor.execute(
+                "SELECT id, ad_soyad, password_hash, is_admin, email, is_blocked FROM users WHERE email = ? AND is_admin = 1",
+                (email,))
+        except sqlite3.OperationalError:
+            cursor.execute(
+                "SELECT id, ad_soyad, password_hash, is_admin, email FROM users WHERE email = ? AND is_admin = 1",
+                (email,))
+
         admin_data = cursor.fetchone()
-        conn.close()
 
         if admin_data and check_password_hash(admin_data[2], password):
-            login_user(User(id=admin_data[0], ad_soyad=admin_data[1], is_admin=admin_data[3], email=admin_data[4]))
-            flash('Süper Yönetici Paneline Hoş Geldiniz.', 'success')
-            return redirect(url_for('admin_users'))
+            cursor.execute("SELECT host, port, user_email, password FROM settings WHERE user_id = ?", (admin_data[0],))
+            admin_settings = cursor.fetchone()
+            is_blocked = admin_data[5] if len(admin_data) > 5 and admin_data[5] is not None else 0
+
+            if not admin_settings or not admin_settings[2]:
+                login_user(User(id=admin_data[0], ad_soyad=admin_data[1], is_admin=admin_data[3], email=admin_data[4],
+                                is_blocked=is_blocked))
+                conn.close()
+                return redirect(url_for('admin_users'))
+
+            auth_code = str(random.randint(100000, 999999))
+            cursor.execute("UPDATE users SET auth_code=? WHERE id=?", (auth_code, admin_data[0]))
+            conn.commit()
+            conn.close()
+
+            try:
+                host, port, sender_email, sender_pass = admin_settings
+                server = smtplib.SMTP(host, int(port), timeout=5)
+                server.starttls()
+                server.login(sender_email, sender_pass)
+                msg = MIMEMultipart()
+                msg['From'] = sender_email
+                msg['To'] = email
+                msg['Subject'] = "Yönetici Paneli Doğrulama Kodu"
+                msg.attach(MIMEText(f"Süper Yönetici Giriş Kodunuz: {auth_code}", 'plain'))
+                server.send_message(msg)
+                server.quit()
+                session['pending_user_id'] = admin_data[0]
+                return redirect(url_for('verify_2fa'))
+            except Exception:
+                flash('Doğrulama e-postası gönderilemedi!', 'danger')
+                return redirect(url_for('admin_login'))
         else:
+            conn.close()
             flash('Yetkisiz giriş denemesi!', 'danger')
     return render_template('admin_login.html')
+
+
+# --- 3. 2 ADIMLI DOĞRULAMA (2FA) EKRANI ---
+@app.route('/verify', methods=['GET', 'POST'])
+def verify_2fa():
+    if 'pending_user_id' not in session:
+        return redirect(url_for('login'))
+
+    if request.method == 'POST':
+        user_code = request.form['code'].strip()  # Gelen koddaki boşlukları temizle
+        user_id = session['pending_user_id']
+        conn = sqlite3.connect(DB_NAME)
+        cursor = conn.cursor()
+
+        try:
+            cursor.execute("SELECT id, ad_soyad, is_admin, email, auth_code, is_blocked FROM users WHERE id=?",
+                           (user_id,))
+        except sqlite3.OperationalError:
+            cursor.execute("SELECT id, ad_soyad, is_admin, email, auth_code FROM users WHERE id=?", (user_id,))
+
+        user = cursor.fetchone()
+
+        # MUCİZE BURADA: İki tarafı da str() ile zorla metne çevirip eşleştiriyoruz!
+        if user and str(user[4]) == str(user_code):
+            cursor.execute("UPDATE users SET auth_code=NULL WHERE id=?", (user_id,))
+            conn.commit()
+            conn.close()
+            session.pop('pending_user_id', None)
+
+            is_blocked = user[5] if len(user) > 5 and user[5] is not None else 0
+            login_user(User(id=user[0], ad_soyad=user[1], is_admin=user[2], email=user[3], is_blocked=is_blocked))
+
+            if user[2] == 1:
+                flash('Süper Yönetici Paneline Hoş Geldiniz.', 'success')
+                return redirect(url_for('admin_users'))
+            return redirect(url_for('dashboard'))
+        else:
+            conn.close()
+            # Hata ajanı: Eğer yine olmazsa PyCharm terminaline beklenen ve girilen kodu yazdıracak!
+            print(f"--- HATA TESPİTİ --- Beklenen Kod: {user[4]} | Senin Girdiğin: {user_code}")
+            flash('Hatalı doğrulama kodu girdiniz!', 'danger')
+
+    return render_template('verify.html')
 
 
 @app.route('/register', methods=['GET', 'POST'])
@@ -213,11 +452,9 @@ def register():
         ad_soyad = request.form['ad_soyad'].strip()
         email = request.form['email'].strip().lower()
         password = request.form['password']
-
         if password != request.form['confirm_password']:
             flash('Şifreler eşleşmiyor!', 'danger')
             return redirect(url_for('register'))
-
         conn = sqlite3.connect(DB_NAME)
         cursor = conn.cursor()
         cursor.execute("SELECT id FROM users WHERE email = ?", (email,))
@@ -225,7 +462,6 @@ def register():
             flash('Bu e-posta adresi zaten kullanılıyor.', 'danger')
             conn.close()
             return redirect(url_for('register'))
-
         hashed_pw = generate_password_hash(password)
         cursor.execute("INSERT INTO users (ad_soyad, email, password_hash, is_admin) VALUES (?, ?, ?, 0)",
                        (ad_soyad, email, hashed_pw))
@@ -236,52 +472,51 @@ def register():
     return render_template('register.html')
 
 
-# --- YENİ: KULLANICI PROFİLİ SAYFASI ---
 @app.route('/profile', methods=['GET', 'POST'])
 @login_required
 def profile():
     if request.method == 'POST':
         yeni_ad = request.form['ad_soyad'].strip()
         yeni_sifre = request.form['yeni_sifre']
-
         conn = sqlite3.connect(DB_NAME)
         cursor = conn.cursor()
-
-        if yeni_sifre:  # Şifre de değişmek isteniyorsa
+        if yeni_sifre:
             hashed_pw = generate_password_hash(yeni_sifre)
             cursor.execute("UPDATE users SET ad_soyad=?, password_hash=? WHERE id=?",
                            (yeni_ad, hashed_pw, current_user.id))
             flash('Profil bilgileriniz ve şifreniz güncellendi.', 'success')
-        else:  # Sadece isim değişecekse
+        else:
             cursor.execute("UPDATE users SET ad_soyad=? WHERE id=?", (yeni_ad, current_user.id))
             flash('Profil bilgileriniz başarıyla güncellendi.', 'success')
-
         conn.commit()
         conn.close()
-
-        # Ekrandaki ismin anında güncellenmesi için kullanıcıyı yeniden yükle
         current_user.ad_soyad = yeni_ad
         return redirect(url_for('profile'))
-
     return render_template('profile.html')
 
 
-# --- DİĞER SAYFALAR (Değişmedi, sadece username yerine ad_soyad çekildi) ---
 @app.route('/admin/users')
 @login_required
 def admin_users():
     if current_user.is_admin != 1: return redirect(url_for('dashboard'))
     conn = sqlite3.connect(DB_NAME)
     cursor = conn.cursor()
-    cursor.execute("SELECT id, ad_soyad, is_admin, email FROM users ORDER BY id DESC")
+
+    try:
+        cursor.execute("SELECT id, ad_soyad, is_admin, email, is_blocked FROM users ORDER BY id DESC")
+    except sqlite3.OperationalError:
+        cursor.execute("SELECT id, ad_soyad, is_admin, email FROM users ORDER BY id DESC")
+
     all_users = cursor.fetchall()
     user_stats = []
     for user in all_users:
         u_id = user[0]
         cursor.execute("SELECT COUNT(*) FROM logs WHERE user_id=?", (u_id,))
         total_mails = cursor.fetchone()[0]
+        is_blocked = user[4] if len(user) > 4 and user[4] is not None else 0
         user_stats.append(
-            {'id': u_id, 'ad_soyad': user[1], 'is_admin': user[2], 'email': user[3], 'total_mails': total_mails})
+            {'id': u_id, 'ad_soyad': user[1], 'is_admin': user[2], 'email': user[3], 'is_blocked': is_blocked,
+             'total_mails': total_mails})
     conn.close()
     return render_template('admin_users.html', users=user_stats)
 
@@ -399,9 +634,11 @@ def send_mail():
     except Exception:
         flash('Sunucu veya Şifre hatası. Lütfen ayarlarınızı kontrol edin.', 'danger')
         return redirect(url_for('dashboard'))
+
     raw_recipients = request.form['recipients'].replace(",", "\n").split("\n")
     email_list = [e.strip().lower() for e in raw_recipients if "@" in e]
     if not email_list: return redirect(url_for('dashboard'))
+
     subject = request.form['subject']
     body = request.form['body']
     video_link = request.form.get('video_link', '').strip()
@@ -412,6 +649,7 @@ def send_mail():
         filepath = os.path.join(app.config['UPLOAD_FOLDER'], filename)
         cover_file.save(filepath)
         cover_path = filepath
+
     attachment_paths = []
     files = request.files.getlist('attachment')
     for file in files:
@@ -420,6 +658,7 @@ def send_mail():
             filepath = os.path.join(app.config['UPLOAD_FOLDER'], filename)
             file.save(filepath)
             attachment_paths.append(filepath)
+
     thread = threading.Thread(target=background_mailer,
                               args=(current_user.id, email_list, subject, body, attachment_paths, video_link,
                                     cover_path, settings))
@@ -431,7 +670,6 @@ def send_mail():
 
 @app.route('/logout')
 @login_required
-
 def logout():
     logout_user()
     return redirect(url_for('login'))

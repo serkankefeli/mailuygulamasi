@@ -70,6 +70,15 @@
                                         <i class="fa-solid fa-arrow-down"></i> Yetkiyi Al
                                     </a>
                                     {% endif %}
+                                    {% if u.is_blocked == 0 %}
+                                     <a href="/admin/toggle_block/{{ u.id }}" class="btn btn-sm btn-outline-dark me-2">
+                                         <i class="fa-solid fa-ban"></i> Engelle</a>
+                                    {% else %}
+                                        <a href="/admin/toggle_block/{{ u.id }}" class="btn btn-sm btn-dark me-2">
+                                        <i class="fa-solid fa-unlock"></i> Engeli Kaldır
+                                        </a>
+                                    {% endif %}
+
                                     <a href="/admin/delete_user/{{ u.id }}" class="btn btn-sm btn-outline-danger border-0" onclick="return confirm('Bu kullanıcıyı tamamen silmek istediğinize emin misiniz?');">
                                         <i class="fa-solid fa-trash-can"></i>
                                     </a>
