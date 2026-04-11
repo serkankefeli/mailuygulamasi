@@ -1015,6 +1015,49 @@ def delete_user(id):
     return redirect(url_for('admin_users'))
 
 
+# --- LOGO YÜKLEME SİSTEMİ ---
+@app.route('/upload_logo', methods=['POST'])
+@login_required
+def upload_logo():
+    if current_user.is_admin != 1:
+        flash('Bu işlem için yetkiniz yok.', 'danger')
+        return redirect(url_for('dashboard'))
+
+    file = request.files.get('logo_file')
+    if file and file.filename != '':
+        # Sadece resim formatlarına izin ver
+        if file.filename.lower().endswith(('.png', '.jpg', '.jpeg', '.svg')):
+            # Eski logoyu sabit bir isimle kaydedelim ki her seferinde dosya yolu aramayalım
+            filename = "app_logo" + os.path.splitext(file.filename)[1]
+            logo_path = os.path.join('static/images', filename)
+
+            # Klasör yoksa oluştur
+            os.makedirs('static/images', exist_ok=True)
+
+            # Dosyayı kaydet (mevcut olanın üzerine yazar)
+            file.save(logo_path)
+
+            # Veritabanında ayarlar tablosuna logo yolunu kaydet
+            conn = sqlite3.connect(DB_NAME)
+            cursor = conn.cursor()
+            try:
+                # Tabloya logo_url sütunu eklemeye çalış (yoksa)
+                cursor.execute("ALTER TABLE settings ADD COLUMN logo_url TEXT")
+            except:
+                pass
+
+            cursor.execute(
+                "UPDATE settings SET logo_url=? WHERE user_id=(SELECT id FROM users WHERE is_admin=1 LIMIT 1)",
+                (filename,))
+            conn.commit()
+            conn.close()
+
+            flash('Logo başarıyla güncellendi!', 'success')
+        else:
+            flash('Lütfen geçerli bir resim formatı yükleyin (.png, .jpg, .svg)', 'danger')
+    return redirect(url_for('settings_page'))
+
+
 if __name__ == '__main__':
     init_db()
     app.run(debug=True)
