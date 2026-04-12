@@ -81,6 +81,17 @@ def init_db():
     cursor.execute(
         "CREATE TABLE IF NOT EXISTS templates (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id INTEGER, template_name TEXT, subject TEXT, body TEXT)")
 
+    # 🆕 YENİ EKLENEN ÖDEME TABLOLARI 🆕
+    cursor.execute('''CREATE TABLE IF NOT EXISTS payment_settings (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        active_methods TEXT DEFAULT 'havale',
+        iban_no TEXT, banka_adi TEXT, hesap_sahibi TEXT, pro_price REAL DEFAULT 150.00,
+        paytr_id TEXT, paytr_key TEXT, iyzico_api_key TEXT, iyzico_secret_key TEXT
+    )''')
+    cursor.execute('''CREATE TABLE IF NOT EXISTS upgrade_requests (
+        id INTEGER PRIMARY KEY AUTOINCREMENT, user_id INTEGER, talep_tarihi TEXT, odeme_metodu TEXT, durum TEXT DEFAULT 'beklemede', notlar TEXT
+    )''')
+
     try:
         cursor.execute("ALTER TABLE settings ADD COLUMN webhook_url TEXT")
     except:
@@ -102,11 +113,38 @@ def init_db():
     except:
         pass
 
+        # 🆕 VİTRİN VE SEO TABLOSU 🆕
+        cursor.execute('''CREATE TABLE IF NOT EXISTS landing_settings (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            hero_title TEXT, hero_subtitle TEXT,
+            f1_title TEXT, f1_desc TEXT,
+            f2_title TEXT, f2_desc TEXT,
+            f3_title TEXT, f3_desc TEXT,
+            footer_text TEXT, ga_id TEXT, looker_url TEXT
+        )''')
+        cursor.execute("SELECT id FROM landing_settings")
+        if not cursor.fetchone():
+            cursor.execute(
+                "INSERT INTO landing_settings (hero_title, hero_subtitle, f1_title, f1_desc, f2_title, f2_desc, f3_title, f3_desc, footer_text) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                ("Müşterilerinize Ulaşmanın En Akıllı Yolu",
+                 "EST Yazılım güvencesiyle e-posta kampanyalarınızı saniyeler içinde tasarlayın, gönderin ve sonuçları analiz edin.",
+                 "Detaylı Analitik", "Hangi müşterinizin maili açtığını, raporlayın.", "Akıllı Şablonlar",
+                 "En iyi tasarımlarınızı şablon olarak kaydedin.", "Güvenli Altyapı",
+                 "Spam filtrelerine takılmadan hızlı teslimat.",
+                 "© 2026 EST Yazılım ve Bilişim Teknolojileri Limited Şirketi."))
+
     cursor.execute("SELECT * FROM users WHERE email = 'admin@sistem.com'")
     if not cursor.fetchone():
         cursor.execute(
             "INSERT INTO users (ad_soyad, email, password_hash, is_admin, plan_type) VALUES (?, ?, ?, 1, 'pro')",
             ('Sistem Yöneticisi', 'admin@sistem.com', generate_password_hash("123456")))
+
+    # 🆕 VARSAYILAN ÖDEME AYARLARINI OLUŞTUR 🆕
+    cursor.execute("SELECT id FROM payment_settings")
+    if not cursor.fetchone():
+        cursor.execute("INSERT INTO payment_settings (iban_no, banka_adi, hesap_sahibi) VALUES (?, ?, ?)",
+                       ("TR00 0000 0000 0000 0000 0000 00", "EST BANK", "EST Yazılım Ltd. Şti."))
+
     conn.commit()
     conn.close()
 
@@ -116,7 +154,8 @@ def premium_required(f):
     def decorated_function(*args, **kwargs):
         if current_user.is_admin != 1 and getattr(current_user, 'plan_type', 'free') == 'free':
             flash('🌟 Bu özellik PRO pakete özeldir! Lütfen planınızı yükseltin.', 'warning')
-            return redirect(request.referrer or url_for('dashboard'))
+            # Kullanıcıyı yükseltme sayfasına yönlendiriyoruz
+            return redirect(url_for('upgrade'))
         return f(*args, **kwargs)
 
     return decorated_function
@@ -276,7 +315,7 @@ def api_send():
     if user[2] != 1 and user[1] == 'free':
         conn.close()
         return jsonify({
-                           'error': 'API Kullanimi reddedildi! REST API entegrasyonu yalnizca PRO pakete ozeldir. Lutfen hesabinizi yukseltin.'}), 403
+            'error': 'API Kullanimi reddedildi! REST API entegrasyonu yalnizca PRO pakete ozeldir. Lutfen hesabinizi yukseltin.'}), 403
 
     cursor.execute("SELECT * FROM settings WHERE user_id=?", (user_id,))
     settings = cursor.fetchone()
@@ -700,9 +739,84 @@ def send_mail():
     return redirect(url_for('dashboard'))
 
 
-@app.route('/', methods=['GET', 'POST'])
+# 1. DİNAMİK VİTRİN ROTASI
+@app.route('/')
+def index():
+    if current_user.is_authenticated: return redirect(url_for('dashboard'))
+    conn = sqlite3.connect(DB_NAME)
+    cursor = conn.cursor()
+    cursor.execute("SELECT * FROM landing_settings WHERE id=1")
+    landing = cursor.fetchone()
+    conn.close()
+    return render_template('index.html', landing=landing)
+
+
+# 2. ADMİN SİTE, MEDYA & SEO YÖNETİM ROTASI
+@app.route('/admin/site_settings', methods=['GET', 'POST'])
+@login_required
+def admin_site_settings():
+    if current_user.is_admin != 1: return redirect(url_for('dashboard'))
+    conn = sqlite3.connect(DB_NAME)
+    cursor = conn.cursor()
+
+    # Eğer medya sütunları veritabanında yoksa otomatik ekleyelim (Hata vermemesi için)
+    try:
+        cursor.execute("ALTER TABLE landing_settings ADD COLUMN hero_image TEXT")
+        cursor.execute("ALTER TABLE landing_settings ADD COLUMN promo_video TEXT")
+    except:
+        pass
+
+    if request.method == 'POST':
+        ht = request.form.get('hero_title', '')
+        hs = request.form.get('hero_subtitle', '')
+        f1t, f1d = request.form.get('f1_title', ''), request.form.get('f1_desc', '')
+        f2t, f2d = request.form.get('f2_title', ''), request.form.get('f2_desc', '')
+        f3t, f3d = request.form.get('f3_title', ''), request.form.get('f3_desc', '')
+        ft = request.form.get('footer_text', '')
+        ga = request.form.get('ga_id', '').strip()
+        lu = request.form.get('looker_url', '').strip()
+
+        # 🆕 MEDYA VERİLERİ 🆕
+        promo_video = request.form.get('promo_video', '').strip()
+
+        # Mevcut resmi kaybetmemek için önce eskisini çekelim
+        cursor.execute("SELECT hero_image FROM landing_settings WHERE id=1")
+        mevcut_resim = cursor.fetchone()
+        hero_image_path = mevcut_resim[0] if mevcut_resim and mevcut_resim[0] else ""
+
+        # Yeni resim yüklendiyse onu kaydedelim
+        image_file = request.files.get('hero_image')
+        if image_file and image_file.filename:
+            filename = secure_filename(image_file.filename)
+            filepath = os.path.join(app.config['UPLOAD_FOLDER'], filename)
+            image_file.save(filepath)
+            hero_image_path = filename  # Sadece dosya adını veritabanına yazıyoruz
+
+        cursor.execute("""UPDATE landing_settings SET 
+            hero_title=?, hero_subtitle=?, f1_title=?, f1_desc=?, 
+            f2_title=?, f2_desc=?, f3_title=?, f3_desc=?, footer_text=?, ga_id=?, looker_url=?, hero_image=?, promo_video=? WHERE id=1""",
+                       (ht, hs, f1t, f1d, f2t, f2d, f3t, f3d, ft, ga, lu, hero_image_path, promo_video))
+        conn.commit()
+        flash('Site, Medya ve SEO ayarları başarıyla güncellendi!', 'success')
+
+    cursor.execute("SELECT * FROM landing_settings WHERE id=1")
+    landing = cursor.fetchone()
+    conn.close()
+    return render_template('admin_site.html', landing=landing)
+
+
+# 🆕 YÜKLENEN RESİMLERİ SİTEDE GÖSTERMEK İÇİN GEREKLİ ROTA 🆕
+from flask import send_from_directory
+
+
+@app.route('/uploads/<path:filename>')
+def serve_uploads(filename):
+    return send_from_directory(app.config['UPLOAD_FOLDER'], filename)
+# 2. GİRİŞ SAYFAMIZ (Artık /login adresinde)
+@app.route('/login', methods=['GET', 'POST'])
 def login():
     if current_user.is_authenticated: return redirect(url_for('dashboard'))
+    # ... giriş kodları aynı şekilde devam ediyor ...
     if request.method == 'POST':
         email = request.form['email'].strip().lower()
         password = request.form['password']
@@ -809,23 +923,33 @@ def register():
         ad_soyad = request.form['ad_soyad'].strip()
         email = request.form['email'].strip().lower()
         password = request.form['password']
+
+        # 🆕 ŞİFRE GÜVENLİK KONTROLÜ (En az 8 Karakter ve 1 Özel Karakter) 🆕
+        if len(password) < 8 or not any(not c.isalnum() for c in password):
+            flash(
+                'Güvenlik Uyarısı: Şifreniz en az 8 karakter olmalı ve en az 1 özel karakter (!@#$%^&* vb.) içermelidir!',
+                'warning')
+            return redirect(url_for('register'))
+
         if password != request.form['confirm_password']:
             flash('Şifreler eşleşmiyor!', 'danger')
             return redirect(url_for('register'))
+
         conn = sqlite3.connect(DB_NAME)
         cursor = conn.cursor()
         cursor.execute("SELECT id FROM users WHERE email = ?", (email,))
         if cursor.fetchone():
-            flash('Bu mail zaten kayıtlı.', 'danger')
+            flash('Bu mail zaten kayıtlı. Lütfen giriş yapın.', 'danger')
             conn.close()
             return redirect(url_for('register'))
+
         hashed_pw = generate_password_hash(password)
         cursor.execute(
             "INSERT INTO users (ad_soyad, email, password_hash, is_admin, plan_type) VALUES (?, ?, ?, 0, 'free')",
             (ad_soyad, email, hashed_pw))
         conn.commit()
         conn.close()
-        flash('Kayıt başarılı!', 'success')
+        flash('Kayıt başarılı! Şimdi belirlediğiniz şifre ile giriş yapabilirsiniz.', 'success')
         return redirect(url_for('login'))
     return render_template('register.html')
 
@@ -1014,9 +1138,102 @@ def delete_user(id):
     conn.close()
     return redirect(url_for('admin_users'))
 
-# --- SİSTEMİ ATEŞLE (GUNICORN'U ATLATAN KISIM) ---
-with app.app_context():
-    init_db()
+
+# 🆕 KULLANICI İÇİN ÖDEME EKRANI ROTASI 🆕
+@app.route('/upgrade', methods=['GET', 'POST'])
+@login_required
+def upgrade():
+    conn = sqlite3.connect(DB_NAME)
+    cursor = conn.cursor()
+
+    if request.method == 'POST':
+        # Kullanıcı "Ödemeyi Yaptım" butonuna bastığında
+        tarih = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        cursor.execute("INSERT INTO upgrade_requests (user_id, talep_tarihi, odeme_metodu) VALUES (?, ?, ?)",
+                       (current_user.id, tarih, 'Havale/EFT'))
+        conn.commit()
+        conn.close()
+        flash('Yükseltme talebiniz alındı! Yönetici onayı sonrası hesabınız PRO olacaktır.', 'info')
+        return redirect(url_for('dashboard'))
+
+    cursor.execute("SELECT * FROM payment_settings WHERE id=1")
+    p_settings = cursor.fetchone()
+    conn.close()
+    return render_template('upgrade.html', settings=p_settings)
+
+
+# 🆕 ADMİN İÇİN ÖDEME KONTROL MERKEZİ ROTASI 🆕
+@app.route('/admin/payment_management', methods=['GET', 'POST'])
+@login_required
+def payment_management():
+    if current_user.is_admin != 1: return redirect(url_for('dashboard'))
+    conn = sqlite3.connect(DB_NAME)
+    cursor = conn.cursor()
+
+    if request.method == 'POST':
+        # Formdan gelen verileri alıyoruz
+        metotlar = ",".join(request.form.getlist('methods'))
+        iban = request.form['iban']
+        price = request.form['price']
+
+        # 🆕 Yeni Entegrasyon Alanları
+        paytr_id = request.form.get('paytr_id', '').strip()
+        paytr_key = request.form.get('paytr_key', '').strip()
+        iyzico_key = request.form.get('iyzico_key', '').strip()
+        iyzico_secret = request.form.get('iyzico_secret', '').strip()
+
+        cursor.execute("""UPDATE payment_settings SET 
+            active_methods=?, iban_no=?, pro_price=?, 
+            paytr_id=?, paytr_key=?, iyzico_api_key=?, iyzico_secret_key=? 
+            WHERE id=1""",
+                       (metotlar, iban, price, paytr_id, paytr_key, iyzico_key, iyzico_secret))
+
+        conn.commit()
+        flash('Ödeme ve entegrasyon ayarları başarıyla güncellendi!', 'success')
+
+    cursor.execute(
+        "SELECT ur.id, u.ad_soyad, ur.talep_tarihi, ur.durum, ur.odeme_metodu FROM upgrade_requests ur JOIN users u ON ur.user_id = u.id ORDER BY ur.id DESC")
+    talepler = cursor.fetchall()
+
+    cursor.execute("SELECT * FROM payment_settings WHERE id=1")
+    settings = cursor.fetchone()
+    conn.close()
+    return render_template('admin_payments.html', talepler=talepler, settings=settings)
+
+
+# 🆕 ADMİN TALEBİ ONAYLAMA ROTASI 🆕
+@app.route('/admin/approve_upgrade/<int:req_id>')
+@login_required
+def approve_upgrade(req_id):
+    if current_user.is_admin != 1: return redirect(url_for('dashboard'))
+    conn = sqlite3.connect(DB_NAME)
+    cursor = conn.cursor()
+    # Talebi bul ve kullanıcıyı PRO yap
+    cursor.execute("SELECT user_id FROM upgrade_requests WHERE id=?", (req_id,))
+    row = cursor.fetchone()
+    if row:
+        u_id = row[0]
+        cursor.execute("UPDATE users SET plan_type='pro' WHERE id=?", (u_id,))
+        cursor.execute("UPDATE upgrade_requests SET durum='onaylandi' WHERE id=?", (req_id,))
+        conn.commit()
+        flash('Kullanıcı başarıyla PRO pakete yükseltildi!', 'success')
+    conn.close()
+    return redirect(url_for('payment_management'))
+# 🆕 ADMİN TALEBİ REDDETME ROTASI 🆕
+@app.route('/admin/reject_upgrade/<int:req_id>')
+@login_required
+def reject_upgrade(req_id):
+    if current_user.is_admin != 1: return redirect(url_for('dashboard'))
+    conn = sqlite3.connect(DB_NAME)
+    cursor = conn.cursor()
+    # Sadece durumu 'reddedildi' olarak güncelliyoruz
+    cursor.execute("UPDATE upgrade_requests SET durum='reddedildi' WHERE id=?", (req_id,))
+    conn.commit()
+    conn.close()
+    flash('Ödeme talebi reddedildi.', 'warning')
+    return redirect(url_for('payment_management'))
+
 
 if __name__ == '__main__':
+    init_db()
     app.run(debug=True)

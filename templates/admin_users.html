@@ -35,6 +35,21 @@
         <div class="card-header bg-white py-3">
             <h5 class="mb-0 fw-bold"><i class="fa-solid fa-users me-2 text-primary"></i>Sisteme Kayıtlı Kullanıcılar</h5>
         </div>
+
+        <ul class="nav nav-pills shadow-sm p-3 mb-4 bg-white rounded">
+            <li class="nav-item">
+            <a class="nav-link active" href="{{ url_for('admin_users') }}"><i class="fas fa-users"></i> Kullanıcı Yönetimi</a>
+            </li>
+            <li class="nav-item ms-2">
+                <a class="nav-link text-dark" href="{{ url_for('payment_management') }}"><i class="fas fa-wallet"></i> Ödeme Yönetimi</a>
+            </li>
+            <li class="nav-item ms-2">
+                <a class="nav-link text-dark" href="{{ url_for('admin_site_settings') }}"><i class="fas fa-globe"></i> Site & Analiz</a>
+            </li>
+            <li class="nav-item ms-auto">
+                <a class="nav-link text-secondary" href="{{ url_for('dashboard') }}"><i class="fas fa-arrow-left"></i> Panoya Dön</a>
+            </li>
+        </ul>
         <div class="card-body p-0">
             <div class="table-responsive">
                 <table class="table table-hover align-middle mb-0">

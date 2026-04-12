@@ -83,6 +83,13 @@
                 <i class="fa-solid fa-users-gear me-1"></i> Müşteri Yönetimi
             </a>
           {% endif %}
+          {% if current_user.is_authenticated and current_user.plan_type == 'free' and current_user.is_admin != 1 %}
+        <li class="nav-item ms-2">
+                <a class="btn btn-warning btn-sm fw-bold text-dark d-flex align-items-center mt-1 px-3 shadow-sm" href="{{ url_for('upgrade') }}">
+                <i class="fas fa-crown me-2"></i> PRO'ya Geç
+                </a>
+        </li>
+            {% endif %}
 
           <div class="btn-group">
               <a href="/profile" class="btn btn-outline-light btn-sm"><i class="fa-solid fa-user-pen"></i></a>

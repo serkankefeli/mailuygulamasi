@@ -1,0 +1,105 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="container mt-4">
+
+    <ul class="nav nav-pills shadow-sm p-3 mb-4 bg-white rounded">
+        <li class="nav-item">
+            <a class="nav-link text-dark" href="{{ url_for('admin_users') }}"><i class="fas fa-users"></i> Kullanıcı Yönetimi</a>
+        </li>
+        <li class="nav-item ms-2">
+            <a class="nav-link text-dark" href="{{ url_for('payment_management') }}"><i class="fas fa-wallet"></i> Ödeme Yönetimi</a>
+        </li>
+        <li class="nav-item ms-2">
+            <a class="nav-link active bg-info text-dark fw-bold" href="{{ url_for('admin_site_settings') }}"><i class="fas fa-globe"></i> Site & Analiz</a>
+        </li>
+        <li class="nav-item ms-auto">
+            <a class="nav-link text-secondary" href="{{ url_for('dashboard') }}"><i class="fas fa-arrow-left"></i> Panoya Dön</a>
+        </li>
+    </ul>
+
+    <form action="{{ url_for('admin_site_settings') }}" method="POST" enctype="multipart/form-data">
+        <div class="row">
+
+            <div class="col-lg-6 mb-4">
+                <div class="card shadow-sm h-100 border-info">
+                    <div class="card-header bg-info text-dark fw-bold">
+                        <i class="fas fa-pen-nib"></i> Vitrin İçerik & Medya Yönetimi
+                    </div>
+                    <div class="card-body">
+
+                        <h6 class="text-primary fw-bold border-bottom pb-2">Ana Karşılama (Hero)</h6>
+                        <input type="text" name="hero_title" class="form-control mb-2 fw-bold" value="{{ landing[1] }}" placeholder="Büyük Başlık">
+                        <textarea name="hero_subtitle" class="form-control mb-3" rows="2" placeholder="Alt Açıklama">{{ landing[2] }}</textarea>
+
+                        <div class="p-3 bg-light rounded border mb-4">
+                            <h6 class="text-success fw-bold"><i class="fas fa-photo-video"></i> Görsel & Video Ayarları</h6>
+                            <label class="form-label small fw-bold mt-2">Tanıtım Görseli Yükle (Sağ Tarafta Çıkar)</label>
+                            <input type="file" name="hero_image" class="form-control mb-2" accept="image/*">
+                            {% if landing[12] %}
+                            <small class="text-success d-block mb-3"><i class="fas fa-check"></i> Şu an bir görsel yüklü.</small>
+                            {% endif %}
+
+                            <label class="form-label small fw-bold mt-2">VEYA YouTube Tanıtım Videosu Linki</label>
+                            <input type="url" name="promo_video" class="form-control" value="{{ landing[13] if landing[13] else '' }}" placeholder="https://www.youtube.com/embed/XXXXXX">
+                            <small class="text-muted text-warning">Not: Video linki girilirse, yüklü görsel yerine video gösterilir.</small>
+                        </div>
+
+                        <h6 class="text-primary fw-bold border-bottom pb-2">1. Özellik (Sol)</h6>
+                        <input type="text" name="f1_title" class="form-control mb-2 fw-bold" value="{{ landing[3] }}">
+                        <textarea name="f1_desc" class="form-control mb-4" rows="2">{{ landing[4] }}</textarea>
+
+                        <h6 class="text-primary fw-bold border-bottom pb-2">2. Özellik (Orta)</h6>
+                        <input type="text" name="f2_title" class="form-control mb-2 fw-bold" value="{{ landing[5] }}">
+                        <textarea name="f2_desc" class="form-control mb-4" rows="2">{{ landing[6] }}</textarea>
+
+                        <h6 class="text-primary fw-bold border-bottom pb-2">3. Özellik (Sağ)</h6>
+                        <input type="text" name="f3_title" class="form-control mb-2 fw-bold" value="{{ landing[7] }}">
+                        <textarea name="f3_desc" class="form-control mb-4" rows="2">{{ landing[8] }}</textarea>
+
+                        <h6 class="text-primary fw-bold border-bottom pb-2">Footer (Alt Bilgi)</h6>
+                        <input type="text" name="footer_text" class="form-control mb-2" value="{{ landing[9] }}">
+
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-lg-6 mb-4">
+                <div class="card shadow-sm mb-4 border-warning">
+                    <div class="card-header bg-warning text-dark fw-bold">
+                        <i class="fas fa-chart-line"></i> Google Analytics & Kayıt İşlemi
+                    </div>
+                    <div class="card-body bg-light">
+                        <label class="form-label fw-bold">1. GA İzleme Kimliği (Measurement ID)</label>
+                        <input type="text" name="ga_id" class="form-control mb-2 font-monospace" value="{{ landing[10] if landing[10] else '' }}" placeholder="G-XXXXXXXXXX">
+                        <small class="text-muted d-block mb-4">Bunu girdiğinizde Analytics kodu otomatik olarak siteye eklenir.</small>
+
+                        <label class="form-label fw-bold">2. Google Looker Studio Gömme Linki (Opsiyonel)</label>
+                        <input type="text" name="looker_url" class="form-control mb-2 font-monospace" value="{{ landing[11] if landing[11] else '' }}" placeholder="https://lookerstudio.google.com/embed/reporting/...">
+                        <small class="text-muted d-block mb-4">Analytics verilerinizi bu panele yansıtmak için Looker Studio embed linkini buraya yapıştırın.</small>
+
+                        <hr>
+                        <div class="d-grid mt-3">
+                            <button type="submit" class="btn btn-dark btn-lg shadow"><i class="fas fa-save text-success"></i> Tüm Ayarları ve Medyayı Kaydet</button>
+                        </div>
+                    </div>
+                </div>
+
+                {% if landing[11] %}
+                <div class="card shadow-sm border-0">
+                    <div class="card-header bg-dark text-white"><i class="fas fa-tv"></i> Canlı Ziyaretçi Raporu</div>
+                    <div class="card-body p-0" style="height: 400px;">
+                        <iframe src="{{ landing[11] }}" frameborder="0" style="border:0; width:100%; height:100%;" allowfullscreen></iframe>
+                    </div>
+                </div>
+                {% else %}
+                <div class="alert alert-secondary text-center shadow-sm">
+                    <i class="fas fa-chart-area fa-3x mb-2 opacity-50 mt-3"></i><br>
+                    Looker Studio linki eklendiğinde rapor burada görünecektir.
+                </div>
+                {% endif %}
+            </div>
+
+        </div>
+    </form>
+</div>
+{% endblock %}

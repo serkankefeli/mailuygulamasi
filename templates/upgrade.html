@@ -1,0 +1,51 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="container mt-5">
+    <div class="row justify-content-center">
+        <div class="col-md-8">
+            <div class="card shadow-lg border-0 rounded-lg">
+                <div class="card-header bg-dark text-white text-center py-4">
+                    <h3 class="mb-0"><i class="fas fa-rocket text-warning"></i> PRO Pakete Yükselt</h3>
+                    <p class="mb-0 text-muted small mt-2">EST Yazılım'ın tüm limitlerini kaldırın ve gücü hissedin.</p>
+                </div>
+                <div class="card-body p-5">
+                    <div class="text-center mb-4">
+                        <h1 class="display-4 fw-bold text-success">₺{{ settings[5] }} <span class="fs-6 text-muted fw-normal">/ aylık</span></h1>
+                    </div>
+
+                    <div class="alert alert-info border-0 bg-light text-dark">
+                        <h5 class="fw-bold mb-3"><i class="fas fa-university text-primary"></i> Havale / EFT Bilgileri</h5>
+                        <p class="mb-1"><strong>Banka:</strong> {{ settings[3] }}</p>
+                        <p class="mb-1"><strong>Hesap Sahibi:</strong> {{ settings[4] }}</p>
+                        <p class="mb-0 fs-5 font-monospace text-primary"><strong>TR{{ settings[2] }}</strong></p>
+                    </div>
+
+                    <p class="text-muted text-center small mb-4">
+                        * Lütfen açıklamaya kayıtlı e-posta adresinizi yazmayı unutmayın.
+                    </p>
+
+                    {% if 'paytr' in settings[1] or 'iyzico' in settings[1] %}
+                    <div class="d-grid gap-2 mb-3">
+                        <button class="btn btn-primary btn-lg" disabled>
+                            <i class="fas fa-credit-card"></i> Kredi Kartı ile Öde (Çok Yakında)
+                        </button>
+                    </div>
+                    {% endif %}
+
+                    {% if 'havale' in settings[1] %}
+                    <hr class="my-4">
+                    <form action="{{ url_for('upgrade') }}" method="POST">
+                        <div class="d-grid">
+                            <button type="submit" class="btn btn-success btn-lg">
+                                <i class="fas fa-check-circle"></i> Ödemeyi Yaptım, Bildir
+                            </button>
+                        </div>
+                    </form>
+                    {% endif %}
+
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
