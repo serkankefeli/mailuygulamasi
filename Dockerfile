@@ -8,7 +8,7 @@ WORKDIR /app
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-# 4. Bizim yazdığımız tüm kodları sunucuya kopyala
+# 4. KRİTİK DÜZELTME: Tüm dosyaları (app.py, static, templates vb.) kopyala
 COPY . .
 
 # 5. Flask'ın çalışacağı portu dışarıya bildir

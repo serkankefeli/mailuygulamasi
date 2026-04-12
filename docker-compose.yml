@@ -1,0 +1,41 @@
+version: '3.8'
+
+services:
+  # 1. KUTU: VERİTABANI (PostgreSQL)
+  db:
+    image: postgres:15-alpine
+    container_name: est_mail_db
+    restart: always
+    environment:
+      POSTGRES_USER: est_admin
+      POSTGRES_PASSWORD: est_cok_gizli_sifre
+      POSTGRES_DB: est_mailer_db
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - est_network
+
+  # 2. KUTU: BİZİM PYTHON UYGULAMAMIZ
+  web:
+    build: .
+    container_name: est_mail_app
+    restart: always
+    ports:
+      - "5000:5000"
+    environment:
+      # Veritabanına nasıl bağlanacağını buraya yazıyoruz
+      DATABASE_URL: "postgresql://est_admin:est_cok_gizli_sifre@db:5432/est_mailer_db"
+    depends_on:
+      - db
+    volumes:
+      - ./static/images:/app/static/images # Logolar silinmesin diye
+      - ./uploads:/app/uploads # Ekler silinmesin diye
+    networks:
+      - est_network
+
+networks:
+  est_network:
+    driver: bridge
+
+volumes:
+  postgres_data:
