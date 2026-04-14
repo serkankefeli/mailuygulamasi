@@ -64,6 +64,8 @@ def load_user(user_id):
 def init_db():
     conn = sqlite3.connect(DB_NAME)
     cursor = conn.cursor()
+
+    # Standart Tablolar
     cursor.execute(
         '''CREATE TABLE IF NOT EXISTS users (id INTEGER PRIMARY KEY AUTOINCREMENT, ad_soyad TEXT, email TEXT UNIQUE, password_hash TEXT, is_admin INTEGER DEFAULT 0, auth_code TEXT)''')
     cursor.execute(
@@ -81,17 +83,19 @@ def init_db():
     cursor.execute(
         "CREATE TABLE IF NOT EXISTS templates (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id INTEGER, template_name TEXT, subject TEXT, body TEXT)")
 
-    # 🆕 YENİ EKLENEN ÖDEME TABLOLARI 🆕
+    # 🆕 ÖDEME VE TALEP TABLOLARI (Burada olduğundan emin olalım)
     cursor.execute('''CREATE TABLE IF NOT EXISTS payment_settings (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         active_methods TEXT DEFAULT 'havale',
         iban_no TEXT, banka_adi TEXT, hesap_sahibi TEXT, pro_price REAL DEFAULT 150.00,
         paytr_id TEXT, paytr_key TEXT, iyzico_api_key TEXT, iyzico_secret_key TEXT
     )''')
+
     cursor.execute('''CREATE TABLE IF NOT EXISTS upgrade_requests (
         id INTEGER PRIMARY KEY AUTOINCREMENT, user_id INTEGER, talep_tarihi TEXT, odeme_metodu TEXT, durum TEXT DEFAULT 'beklemede', notlar TEXT
     )''')
 
+    # Sütun Güncellemeleri
     try:
         cursor.execute("ALTER TABLE settings ADD COLUMN webhook_url TEXT")
     except:
@@ -113,15 +117,16 @@ def init_db():
     except:
         pass
 
-        # 🆕 VİTRİN VE SEO TABLOSU 🆕 (Girinti hatası düzeltildi!)
+    # 🆕 VİTRİN TABLOSU (Hizalama Düzeltildi!)
     cursor.execute('''CREATE TABLE IF NOT EXISTS landing_settings (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            hero_title TEXT, hero_subtitle TEXT,
-            f1_title TEXT, f1_desc TEXT,
-            f2_title TEXT, f2_desc TEXT,
-            f3_title TEXT, f3_desc TEXT,
-            footer_text TEXT, ga_id TEXT, looker_url TEXT
-        )''')
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        hero_title TEXT, hero_subtitle TEXT,
+        f1_title TEXT, f1_desc TEXT,
+        f2_title TEXT, f2_desc TEXT,
+        f3_title TEXT, f3_desc TEXT,
+        footer_text TEXT, ga_id TEXT, looker_url TEXT
+    )''')
+
     cursor.execute("SELECT id FROM landing_settings")
     if not cursor.fetchone():
         cursor.execute(
@@ -133,17 +138,18 @@ def init_db():
              "Spam filtrelerine takılmadan hızlı teslimat.",
              "© 2026 Mailkamp."))
 
+    # Admin Hesabı
     cursor.execute("SELECT * FROM users WHERE email = 'admin@sistem.com'")
     if not cursor.fetchone():
         cursor.execute(
             "INSERT INTO users (ad_soyad, email, password_hash, is_admin, plan_type) VALUES (?, ?, ?, 1, 'pro')",
             ('Sistem Yöneticisi', 'admin@sistem.com', generate_password_hash("123456")))
 
-    # 🆕 VARSAYILAN ÖDEME AYARLARINI OLUŞTUR 🆕
+    # Varsayılan Ödeme Ayarları
     cursor.execute("SELECT id FROM payment_settings")
     if not cursor.fetchone():
         cursor.execute("INSERT INTO payment_settings (iban_no, banka_adi, hesap_sahibi) VALUES (?, ?, ?)",
-                       ("TR00 0000 0000 0000 0000 0000 00", "Mailkamp", "Mailkamp"))
+                       ("TR00 0000 0000 0000 0000 0000 00", "Mailkamp Bank", "Serkan Kefeli"))
 
     conn.commit()
     conn.close()
@@ -252,7 +258,7 @@ def export_logs():
     with pd.ExcelWriter(output, engine='openpyxl') as writer: df.to_excel(writer, index=False,
                                                                           sheet_name='Gonderim_Raporu')
     output.seek(0)
-    return send_file(output, download_name=f"EST_Mail_Raporu_{datetime.now().strftime('%Y%m%d_%H%M')}.xlsx",
+    return send_file(output, download_name=f"MailKamp_Raporu_{datetime.now().strftime('%Y%m%d_%H%M')}.xlsx",
                      as_attachment=True)
 
 
@@ -433,7 +439,7 @@ def background_mailer(user_id, email_list, subject, body, attachment_paths, vide
 
                 reklam_html = ""
                 if is_free_plan:
-                    reklam_html = f'''<div style="text-align: center; margin-top: 20px; padding-top: 20px; border-top: 1px dashed #e0e0e0;"><p style="font-size: 11px; color: #95a5a6; margin: 0;">Bu e-posta ⚡ <a href="{base_url}" style="color: #2980b9; font-weight: bold; text-decoration: none;">MailKamp</a> platformu ile ücretsiz gönderilmiştir.</p></div>'''
+                    reklam_html = f'''<div style="text-align: center; margin-top: 20px; padding-top: 20px; border-top: 1px dashed #e0e0e0;"><p style="font-size: 11px; color: #95a5a6; margin: 0;">Bu e-posta ⚡ <a href="{base_url}" style="color: #2980b9; font-weight: bold; text-decoration: none;"MailKamp</a> platformu ile ücretsiz gönderilmiştir.</p></div>'''
 
                 kurumsal_html = f'''<!DOCTYPE html><html><body style="margin: 0; padding: 0; background-color: #f4f7f6; font-family: sans-serif;"><table width="100%" border="0" cellspacing="0" cellpadding="0" style="padding: 40px 20px;"><tr><td align="center"><table width="600" border="0" cellspacing="0" cellpadding="0" style="background-color: #ffffff; border-radius: 10px; overflow: hidden; box-shadow: 0 5px 15px rgba(0,0,0,0.05);"><tr><td style="background-color: #1a2b3c; padding: 30px; text-align: center;"><h1 style="color: #ffffff; margin: 0; font-size: 24px;">MailKamp</h1></td></tr><tr><td style="padding: 40px 30px; color: #333333; line-height: 1.8;">{kisisel_body}{video_html}</td></tr><tr><td style="background-color: #ecf0f1; padding: 20px 30px; text-align: center;"><p style="margin: 0; font-size: 13px; color: #7f8c8d; font-weight: bold;">© {datetime.now().year} MailKamp</p><p style="margin: 10px 0 0 0; font-size: 12px; color: #95a5a6;">Abonelikten ayrılmak için <a href="{unsubscribe_link}" style="color: #e74c3c;">tıklayınız</a>.</p>{reklam_html}</td></tr></table></td></tr></table></body></html>'''
 

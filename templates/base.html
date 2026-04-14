@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>EST Kurumsal Mail Paneli</title>
+    <title>MailKamp Kurumusal Mail Paneli</title>
 
     <link rel="icon" type="image/png" href="{{ url_for('static', filename='images/app_logo.png') }}" onerror="this.href='{{ url_for('static', filename='images/logo.png') }}'">
 
@@ -42,7 +42,7 @@
 
     <a class="navbar-brand d-flex align-items-center me-5" href="/dashboard">
         <img src="{{ url_for('static', filename='images/app_logo.png') }}"
-             alt="EST Mail"
+             alt="MailKamp"
              class="navbar-brand-logo"
              onerror="this.src='{{ url_for('static', filename='images/logo.png') }}'; this.onerror=null;">
     </a>
@@ -117,7 +117,7 @@
 
 <footer class="footer mt-auto py-3 bg-white border-top text-center mt-5">
     <div class="container">
-        <span class="text-muted small fw-bold">© {{ now.year if now else '2026' }} EST Yazılım ve Bilişim Teknolojileri Limited Şirketi</span>
+        <span class="text-muted small fw-bold">© {{ now.year if now else '2026' }} MailKamp</span>
     </div>
 </footer>
 
