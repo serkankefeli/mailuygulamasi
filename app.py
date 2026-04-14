@@ -492,6 +492,32 @@ def background_mailer(user_id, email_list, subject, body, attachment_paths, vide
     if cover_path and os.path.exists(cover_path):
         os.remove(cover_path)
 
+        import os  # Eğer dosyanın en üstünde yoksa bunu en üste eklemeyi unutma
+
+        @app.route('/upload_logo', methods=['POST'])
+        def upload_logo():
+            # 1. Dosya hiç gönderilmediyse kontrol et
+            if 'logo_file' not in request.files:
+                flash('Lütfen bir dosya seçin.', 'danger')
+                return redirect(request.referrer)  # Geldiği sayfaya geri gönder
+
+            file = request.files['logo_file']
+
+            # 2. Dosya seçilmeden butona basıldıysa
+            if file.filename == '':
+                flash('Herhangi bir logo dosyası seçilmedi.', 'danger')
+                return redirect(request.referrer)
+
+            # 3. Dosya geldiyse direkt eski logonun üzerine yaz
+            if file:
+                # Eski logonun tam adresini buluyoruz (static/images/logo.png)
+                save_path = os.path.join(app.root_path, 'static', 'images', 'logo.png')
+                file.save(save_path)
+
+                flash('Yeni logo başarıyla yüklendi! (Değişikliği görmek için tarayıcıda CTRL + F5 yapabilirsiniz)',
+                      'success')
+                return redirect(request.referrer)
+
 
 @app.route('/dashboard')
 @login_required
