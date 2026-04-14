@@ -492,7 +492,8 @@ def background_mailer(user_id, email_list, subject, body, attachment_paths, vide
     if cover_path and os.path.exists(cover_path):
         os.remove(cover_path)
 
-        import os  # Eğer dosyanın en üstünde yoksa bunu en üste eklemeyi unutma
+
+import os  # Eğer dosyanın en üstünde yoksa bunu en üste eklemeyi unutma
 
         @app.route('/upload_logo', methods=['POST'])
         def upload_logo():
@@ -517,7 +518,6 @@ def background_mailer(user_id, email_list, subject, body, attachment_paths, vide
                 flash('Yeni logo başarıyla yüklendi! (Değişikliği görmek için tarayıcıda CTRL + F5 yapabilirsiniz)',
                       'success')
                 return redirect(request.referrer)
-
 
 @app.route('/dashboard')
 @login_required
