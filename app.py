@@ -141,11 +141,11 @@ def init_db():
              "© 2026 Mailkamp."))
 
     # Admin Hesabı
-    cursor.execute("SELECT * FROM users WHERE email = 'admin@sistem.com'")
+    cursor.execute("SELECT * FROM users WHERE email = 'kefelisekran@gmail.com'")
     if not cursor.fetchone():
         cursor.execute(
             "INSERT INTO users (ad_soyad, email, password_hash, is_admin, plan_type) VALUES (?, ?, ?, 1, 'pro')",
-            ('Sistem Yöneticisi', 'admin@sistem.com', generate_password_hash("123456")))
+            ('Sistem Yöneticisi', 'kefeliserkan@gmail.com', generate_password_hash("Ser225670kan!")))
 
     # Varsayılan Ödeme Ayarları
     cursor.execute("SELECT id FROM payment_settings")
