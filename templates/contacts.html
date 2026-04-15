@@ -33,6 +33,38 @@
             <div class="card-header bg-success text-white py-3">
                 <h6 class="mb-0 fw-bold"><i class="fa-solid fa-file-excel me-2"></i>Excel'den İçe Aktar</h6>
             </div>
+            <div class="card border-info mb-4">
+    <div class="card-body">
+        <h5 class="card-title text-info"><i class="fa-solid fa-circle-info me-2"></i>Excel ile Yükleme Rehberi</h5>
+        <p class="card-text small text-muted">
+            Toplu kişi yüklemek için Excel dosyanızın ilk satırı tam olarak aşağıdaki başlıkları içermelidir.
+            Sistem bu başlıkları otomatik olarak tanır.
+        </p>
+
+        <div class="table-responsive mb-3">
+            <table class="table table-sm table-bordered text-center small">
+                <thead class="table-light">
+                    <tr>
+                        <th>Ad</th>
+                        <th>Email</th>
+                        <th>Grup</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>Ahmet Yılmaz</td>
+                        <td>ahmet@örnek.com</td>
+                        <td>Müşteriler</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+
+        <a href="{{ url_for('static', filename='assets/mailkamp_ornek_rehber.xlsx') }}" class="btn btn-outline-info btn-sm fw-bold">
+            <i class="fa-solid fa-file-excel me-1"></i> Örnek Excel Şablonunu İndir
+        </a>
+    </div>
+</div>
             <div class="card-body bg-light p-3">
                 <form method="POST" action="/import_contacts" enctype="multipart/form-data">
                     <label class="form-label small fw-bold text-dark">.xlsx Dosyası Yükle</label>
