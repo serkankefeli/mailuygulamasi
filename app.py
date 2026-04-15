@@ -605,6 +605,44 @@ def contacts():
     return render_template('contacts.html', groups=groups, contacts=contact_list)
 
 
+@app.route('/add_group', methods=['POST'])
+@login_required
+def add_group():
+    group_name = request.form.get('group_name')
+    if group_name:
+        group_name = group_name.strip()
+        conn = sqlite3.connect(DB_NAME)
+        cursor = conn.cursor()
+        try:
+            # Aynı isimde grup yoksa ekle
+            cursor.execute("INSERT INTO groups (user_id, group_name) VALUES (?, ?)", (current_user.id, group_name))
+            conn.commit()
+            flash(f'"{group_name}" adlı grup başarıyla oluşturuldu!', 'success')
+        except sqlite3.IntegrityError:
+            # UNIQUE kısıtlaması (aynı isimde grup varsa) devreye girer
+            flash('Bu isimde bir grubunuz zaten var!', 'warning')
+        finally:
+            conn.close()
+    else:
+        flash('Lütfen geçerli bir grup adı girin.', 'danger')
+
+    return redirect(request.referrer or url_for('contacts'))
+
+
+@app.route('/delete_group/<int:group_id>', methods=['POST'])
+@login_required
+def delete_group(group_id):
+    conn = sqlite3.connect(DB_NAME)
+    cursor = conn.cursor()
+    # Grubu sil
+    cursor.execute("DELETE FROM groups WHERE id=? AND user_id=?", (group_id, current_user.id))
+    # Bu gruba ait kişilerin grup ilişkilerini de temizle (Kişilerin kendisi silinmez, sadece gruptan çıkarlar)
+    cursor.execute("DELETE FROM contact_group_rel WHERE group_id=?", (group_id,))
+    conn.commit()
+    conn.close()
+    flash('Grup başarıyla silindi.', 'success')
+    return redirect(request.referrer or url_for('contacts'))
+
 @app.route('/save_settings', methods=['POST'])
 @login_required
 def save_settings():
