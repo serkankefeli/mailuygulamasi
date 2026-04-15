@@ -165,20 +165,26 @@ def premium_required(f):
 @app.route('/admin/legal-edit', methods=['GET', 'POST'])
 @login_required
 def admin_legal_edit():
-    if not current_user.is_admin:  # Sadece admin girebilir
-        return "Yetkisiz Erişim", 403
+    # Sadece admin girebilir, admin değilse hata mesajıyla Dashboard'a yolla
+    if not current_user.is_admin:
+        flash('Bu sayfaya erişim yetkiniz bulunmamaktadır.', 'danger')
+        return redirect(url_for('dashboard'))
 
     conn = sqlite3.connect(DB_NAME)
     cursor = conn.cursor()
 
     if request.method == 'POST':
         slug = request.form.get('slug')
+        yeni_baslik = request.form.get('baslik') # Başlığı da değiştirebilmek için
         yeni_icerik = request.form.get('icerik')
 
-        cursor.execute("UPDATE legal_texts SET icerik = ? WHERE slug = ?", (yeni_icerik, slug))
+        # Hem başlığı hem içeriği güncelleyelim
+        cursor.execute("UPDATE legal_texts SET baslik = ?, icerik = ? WHERE slug = ?",
+                       (yeni_baslik, yeni_icerik, slug))
         conn.commit()
         flash('Sözleşme başarıyla güncellendi!', 'success')
 
+    # Sözleşmeleri tekrar çekelim
     cursor.execute("SELECT * FROM legal_texts")
     texts = cursor.fetchall()
     conn.close()

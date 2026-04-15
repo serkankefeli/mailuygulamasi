@@ -87,6 +87,14 @@
                 </a>
         </li>
             {% endif %}
+      {% if current_user.is_admin %}
+<li class="nav-item">
+    <a class="nav-link" href="{{ url_for('admin_legal_edit') }}">
+        <i class="fas fa-file-contract"></i>
+        <span>Sözleşme Düzenle</span>
+    </a>
+</li>
+{% endif %}
 
           <div class="btn-group">
               <a href="/profile" class="btn btn-outline-light btn-sm"><i class="fa-solid fa-user-pen"></i></a>
