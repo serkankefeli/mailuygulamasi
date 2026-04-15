@@ -34,12 +34,25 @@
 
                     {% if 'havale' in settings[1] %}
                     <hr class="my-4">
-                    <form action="{{ url_for('upgrade') }}" method="POST">
-                        <div class="d-grid">
-                            <button type="submit" class="btn btn-success btn-lg">
-                                <i class="fas fa-check-circle"></i> Ödemeyi Yaptım, Bildir
-                            </button>
+
+                    <form action="{{ url_for('upgrade') }}" method="POST" class="p-4 border rounded shadow-sm bg-white">
+                        <h5 class="mb-3 text-primary"><i class="fa-solid fa-receipt me-2"></i>Ödeme Bildirimi</h5>
+
+                        <div class="mb-3">
+                            <label class="form-label">Ödeme Yapan Ad Soyad</label>
+                            <input type="text" name="payer_name" class="form-control" required placeholder="Dekonttaki isim">
                         </div>
+
+                        <div class="form-check mb-4" style="background: #fdfdfe; padding: 10px 10px 10px 35px; border: 1px dashed #dee2e6; border-radius: 6px;">
+                            <input class="form-check-input" type="checkbox" id="contractCheck" name="contract_accepted" onchange="document.getElementById('notifyBtn').disabled = !this.checked">
+                            <label class="form-check-label small" for="contractCheck">
+                                <a href="#" data-bs-toggle="modal" data-bs-target="#sozlesmeModal" class="fw-bold text-decoration-none">Mesafeli Satış Sözleşmesi</a>'ni ve <a href="#" data-bs-toggle="modal" data-bs-target="#kullanimModal" class="fw-bold text-decoration-none">Kullanım Koşulları</a>'nı okudum, kabul ediyorum.
+                            </label>
+                        </div>
+
+                        <button type="submit" id="notifyBtn" class="btn btn-success w-100 btn-lg" disabled>
+                            <i class="fa-solid fa-paper-plane me-2"></i>Ödemeyi Yaptığımı Bildir
+                        </button>
                     </form>
                     {% endif %}
 
@@ -47,5 +60,48 @@
             </div>
         </div>
     </div>
+</div>
+
+<div class="modal fade" id="sozlesmeModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-body text-muted">
+    {{ legal['mesafeli_satis'] | safe }}
+</div>
+  <div class="modal-dialog modal-dialog-scrollable modal-lg">
+    <div class="modal-content">
+      <div class="modal-header bg-light">
+        <h5 class="modal-title"><i class="fa-solid fa-file-signature me-2"></i>Mesafeli Satış Sözleşmesi</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Kapat"></button>
+      </div>
+      <div class="modal-body text-muted" style="font-size: 0.9rem;">
+        <h6>1. TARAFLAR</h6>
+        <p>İşbu sözleşme, hizmeti sağlayan <strong>EST Yazılım ve Bilişim Teknolojileri Limited Şirketi</strong> (Bundan böyle "Hizmet Sağlayıcı" olarak anılacaktır) ile MailKamp sistemini kullanan Müşteri arasında elektronik ortamda onaylanmıştır.</p>
+        <h6>2. KONU</h6>
+        <p>İşbu sözleşmenin konusu, Müşteri'nin Hizmet Sağlayıcı'ya ait MailKamp platformu üzerinden satın aldığı Yıllık PRO paket lisansının dijital olarak teslimi ve kullanım şartlarının belirlenmesidir.</p>
+        <h6>3. HİZMETİN TESLİMİ VE İADE ŞARTLARI</h6>
+        <p>Yazılım lisansı ve dijital hizmetler, 6502 sayılı Tüketicinin Korunması Hakkında Kanun gereği "anında ifa edilen hizmetler" kapsamında olduğundan, sistem aktif edildikten sonra cayma hakkı ve ücret iadesi bulunmamaktadır. Hizmet kesintisiz olarak 1 (bir) yıl boyunca sağlanacaktır.</p>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Kapat</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="modal fade" id="kullanimModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-scrollable modal-lg">
+    <div class="modal-content">
+      <div class="modal-header bg-light">
+        <h5 class="modal-title"><i class="fa-solid fa-scale-balanced me-2"></i>Kullanım Koşulları ve Anti-Spam Politikası</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Kapat"></button>
+      </div>
+      <div class="modal-body text-muted" style="font-size: 0.9rem;">
+        <p><strong>Önemli Uyarı:</strong> MailKamp altyapısı kullanılarak yasadışı, kimlik avı (phishing) veya alıcıların onaylamadığı (Spam) toplu e-posta gönderimi kesinlikle yasaktır. Sistem, yüksek oranda spam şikayeti alan veya şüpheli aktivite gösteren hesapları önceden haber vermeksizin askıya alma hakkını saklı tutar.</p>
+        <p>Müşteri, sisteme yüklediği tüm e-posta veri tabanlarının yasal izinlere (KVKK/İYS vb.) sahip olduğunu peşinen kabul ve beyan eder.</p>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Anladım</button>
+      </div>
+    </div>
+  </div>
 </div>
 {% endblock %}

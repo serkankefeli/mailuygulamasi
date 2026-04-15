@@ -140,12 +140,6 @@ def init_db():
              "Spam filtrelerine takılmadan hızlı teslimat.",
              "© 2026 Mailkamp."))
 
-    # Admin Hesabı
-    cursor.execute("SELECT * FROM users WHERE email = 'kefelisekran@gmail.com'")
-    if not cursor.fetchone():
-        cursor.execute(
-            "INSERT INTO users (ad_soyad, email, password_hash, is_admin, plan_type) VALUES (?, ?, ?, 1, 'pro')",
-            ('Sistem Yöneticisi', 'kefeliserkan@gmail.com', generate_password_hash("Ser225670kan!")))
 
     # Varsayılan Ödeme Ayarları
     cursor.execute("SELECT id FROM payment_settings")
@@ -166,6 +160,30 @@ def premium_required(f):
         return f(*args, **kwargs)
 
     return decorated_function
+
+
+@app.route('/admin/legal-edit', methods=['GET', 'POST'])
+@login_required
+def admin_legal_edit():
+    if not current_user.is_admin:  # Sadece admin girebilir
+        return "Yetkisiz Erişim", 403
+
+    conn = sqlite3.connect(DB_NAME)
+    cursor = conn.cursor()
+
+    if request.method == 'POST':
+        slug = request.form.get('slug')
+        yeni_icerik = request.form.get('icerik')
+
+        cursor.execute("UPDATE legal_texts SET icerik = ? WHERE slug = ?", (yeni_icerik, slug))
+        conn.commit()
+        flash('Sözleşme başarıyla güncellendi!', 'success')
+
+    cursor.execute("SELECT * FROM legal_texts")
+    texts = cursor.fetchall()
+    conn.close()
+    return render_template('admin_legal_edit.html', texts=texts)
+
 
 
 @app.route('/save_template', methods=['POST'])
@@ -1227,17 +1245,40 @@ def upgrade():
 
     if request.method == 'POST':
         tarih = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+        # Formdan gelen sözleşme onayını yakala
+        contract_accepted = request.form.get('contract_accepted')
+
+        if contract_accepted:
+            cursor.execute("""
+                UPDATE users 
+                SET contract_accepted = 1, 
+                    contract_accepted_date = ? 
+                WHERE id = ?
+            """, (tarih, current_user.id))
+
+        # Yükseltme talebini tabloya yaz
         cursor.execute("INSERT INTO upgrade_requests (user_id, talep_tarihi, odeme_metodu) VALUES (?, ?, ?)",
                        (current_user.id, tarih, 'Havale/EFT'))
+
         conn.commit()
         conn.close()
-        flash('Yükseltme talebiniz alındı! Yönetici onayı sonrası hesabınız PRO olacaktır.', 'info')
+
+        flash('Sözleşme onayınız kaydedildi ve ödeme bildiriminiz alındı! En kısa sürede hesabınız PRO yapılacaktır.',
+              'success')
         return redirect(url_for('dashboard'))
 
+    # BURASI KRİTİK: Sayfa ilk açıldığında sözleşmeleri veritabanından çekiyoruz
+    cursor.execute("SELECT slug, icerik FROM legal_texts")
+    legal_data = {row[0]: row[1] for row in cursor.fetchall()}
+
+    # Mevcut ödeme ayarlarını çekiyoruz
     cursor.execute("SELECT * FROM payment_settings WHERE id=1")
     p_settings = cursor.fetchone()
     conn.close()
-    return render_template('upgrade.html', settings=p_settings)
+
+    # VE EKSİK OLAN KISIM: legal=legal_data diyerek HTML'e gönderiyoruz!
+    return render_template('upgrade.html', settings=p_settings, legal=legal_data)
 
 
 @app.route('/admin/payment_management', methods=['GET', 'POST'])

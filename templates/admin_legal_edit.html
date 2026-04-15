@@ -1,0 +1,50 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="container mt-5">
+    <div class="card shadow border-0">
+        <div class="card-header bg-dark text-white d-flex justify-content-between align-items-center">
+            <h4 class="mb-0"><i class="fas fa-file-contract me-2"></i> Sözleşme Düzenleme Merkezi</h4>
+            <a href="{{ url_for('dashboard') }}" class="btn btn-sm btn-outline-light">Panele Dön</a>
+        </div>
+        <div class="card-body">
+            <ul class="nav nav-pills mb-4" id="pills-tab" role="tablist">
+                {% for text in texts %}
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link {% if loop.first %}active{% endif %}" data-bs-toggle="pill"
+                            data-bs-target="#tab-{{ text[1] }}" type="button">{{ text[2] }}</button>
+                </li>
+                {% endfor %}
+            </ul>
+
+            <div class="tab-content" id="pills-tabContent">
+                {% for text in texts %}
+                <div class="tab-pane fade {% if loop.first %}show active{% endif %}" id="tab-{{ text[1] }}">
+                    <form action="{{ url_for('admin_legal_edit') }}" method="POST">
+                        <input type="hidden" name="slug" value="{{ text[1] }}">
+
+                        <div class="mb-3">
+                            <label class="form-label fw-bold">Sözleşme Başlığı</label>
+                            <input type="text" name="baslik" class="form-control" value="{{ text[2] }}" required>
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label fw-bold">Sözleşme İçeriği (HTML Kullanabilirsiniz)</label>
+                            <textarea name="icerik" class="form-control" rows="15" required>{{ text[3] }}</textarea>
+                            <div class="form-text mt-2 text-muted">
+                                <i class="fas fa-info-circle me-1"></i> Kalın yazı için <b>&lt;b&gt;metin&lt;/b&gt;</b>, yeni satır için <b>&lt;br&gt;</b> kullanabilirsiniz.
+                            </div>
+                        </div>
+
+                        <div class="d-grid">
+                            <button type="submit" class="btn btn-primary btn-lg">
+                                <i class="fas fa-save me-2"></i> {{ text[2] }} Güncellemesini Kaydet
+                            </button>
+                        </div>
+                    </form>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
