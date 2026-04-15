@@ -715,9 +715,38 @@ def send_mail():
         flash('Ayarlar sekmesinden bilgilerinizi kaydedin!', 'danger')
         return redirect(url_for('dashboard'))
 
-    raw_recipients = request.form['recipients'].replace(",", "\n").split("\n")
-    email_list = [e.strip().lower() for e in raw_recipients if "@" in e]
-    if not email_list: return redirect(url_for('dashboard'))
+        # 1. Formdan gelen verileri al (Yeni HTML tasarımına göre)
+        raw_manual_emails = request.form.get('emails', '').replace(",", "\n").split("\n")
+        selected_group_id = request.form.get('target_group')
+
+        email_list = []
+
+        # 2. Manuel yazılan mailleri listeye ekle
+        if raw_manual_emails:
+            parsed_manual = [e.strip().lower() for e in raw_manual_emails if "@" in e]
+            email_list.extend(parsed_manual)
+
+        # 3. Eğer bir grup seçildiyse, gruptaki mailleri veritabanından çek
+        if selected_group_id:
+            conn_group = sqlite3.connect(DB_NAME)
+            cursor_group = conn_group.cursor()
+            cursor_group.execute('''
+                SELECT c.email 
+                FROM contacts c
+                JOIN contact_group_rel cgr ON c.id = cgr.contact_id
+                WHERE cgr.group_id = ? AND c.user_id = ?
+            ''', (selected_group_id, current_user.id))
+
+            group_emails = [row[0] for row in cursor_group.fetchall()]
+            email_list.extend(group_emails)
+            conn_group.close()
+
+        # 4. Aynı mail iki kere yazılmışsa (mükerrer) listeyi temizle
+        email_list = list(set(email_list))
+
+        if not email_list:
+            flash('Lütfen en az bir alıcı grubu seçin veya manuel e-posta girin.', 'danger')
+            return redirect(url_for('dashboard'))
 
     if current_user.is_admin != 1 and current_user.plan_type == 'free':
         conn = sqlite3.connect(DB_NAME)
