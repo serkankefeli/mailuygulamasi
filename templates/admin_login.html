@@ -30,6 +30,9 @@
                     {% endwith %}
 
                     <form method="POST" action="/gizli-kapi">
+
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+
                         <div class="mb-3">
                             <label class="form-label fw-bold small text-secondary">E-Posta Adresi</label>
                             <input type="email" name="email" class="form-control bg-dark text-white border-secondary" required>
