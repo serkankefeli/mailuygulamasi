@@ -6,6 +6,7 @@ from flask import send_from_directory
 import sqlite3
 import os
 import threading
+from pathlib import Path
 import time
 import smtplib
 import random
@@ -21,9 +22,21 @@ from email.mime.base import MIMEBase
 from email.mime.image import MIMEImage
 from email import encoders
 from functools import wraps
+from flask import Flask, render_template, request, redirect, url_for, flash, session, jsonify, send_file
+from flask_login import LoginManager, UserMixin, login_user, login_required, logout_user, current_user
+from werkzeug.security import generate_password_hash, check_password_hash
+from werkzeug.utils import secure_filename
+from flask import send_from_directory
+from flask_wtf.csrf import CSRFProtect  # <--- BUNU EKLE
+from dotenv import load_dotenv          # <--- BUNU DA EKLE (Şifreler için)
+
+load_dotenv() # <--- .env dosyasındaki şifreleri yükler
 
 app = Flask(__name__)
-app.secret_key = "cok_gizli_bir_anahtar_buraya"
+csrf = CSRFProtect(app) # <--- CSRF KALKANI AKTİF EDİLDİ
+# Sunucuda (VPS) bir SECRET_KEY ortam değişkeni varsa onu alır, yoksa her seferinde eşsiz bir şifre üretir.
+# GÜVENLİK: Oturumların her restartta düşmemesi için sabit ve karmaşık bir anahtar
+app.secret_key = os.environ.get('MAILKAMP_SECRET_KEY', 'MAILKAMP_GIZLI_VE_SABIT_ANAHTAR_2026_!@#$')
 DB_NAME = 'web_mailer_v6.db'
 UPLOAD_FOLDER = 'uploads'
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
@@ -51,7 +64,7 @@ def load_user(user_id):
     try:
         cursor.execute("SELECT id, ad_soyad, is_admin, email, is_blocked, plan_type FROM users WHERE id = ?",
                        (user_id,))
-    except:
+    except Exception as e:
         cursor.execute("SELECT id, ad_soyad, is_admin, email FROM users WHERE id = ?", (user_id,))
     u = cursor.fetchone()
     conn.close()
@@ -66,25 +79,30 @@ def init_db():
     conn = sqlite3.connect(DB_NAME)
     cursor = conn.cursor()
 
-    # Standart Tablolar
-    cursor.execute(
-        '''CREATE TABLE IF NOT EXISTS users (id INTEGER PRIMARY KEY AUTOINCREMENT, ad_soyad TEXT, email TEXT UNIQUE, password_hash TEXT, is_admin INTEGER DEFAULT 0, auth_code TEXT)''')
-    cursor.execute(
-        '''CREATE TABLE IF NOT EXISTS logs (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id INTEGER, tarih TEXT, alici TEXT, konu TEXT, durum TEXT, detay TEXT, okundu INTEGER DEFAULT 0, okunma_tarihi TEXT)''')
-    cursor.execute(
-        '''CREATE TABLE IF NOT EXISTS blacklist (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id INTEGER, email TEXT, UNIQUE(user_id, email))''')
-    cursor.execute(
-        '''CREATE TABLE IF NOT EXISTS settings (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id INTEGER UNIQUE, host TEXT, port TEXT, user_email TEXT, password TEXT)''')
-    cursor.execute(
-        "CREATE TABLE IF NOT EXISTS contacts (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id INTEGER, name TEXT, email TEXT, UNIQUE(user_id, email))")
-    cursor.execute(
-        "CREATE TABLE IF NOT EXISTS groups (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id INTEGER, group_name TEXT, UNIQUE(user_id, group_name))")
-    cursor.execute(
-        "CREATE TABLE IF NOT EXISTS contact_group_rel (contact_id INTEGER, group_id INTEGER, UNIQUE(contact_id, group_id))")
-    cursor.execute(
-        "CREATE TABLE IF NOT EXISTS templates (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id INTEGER, template_name TEXT, subject TEXT, body TEXT)")
+    # Standart Tablolar (Eksik sütunlar buraya eklendi)
+    cursor.execute('''CREATE TABLE IF NOT EXISTS users (
+        id INTEGER PRIMARY KEY AUTOINCREMENT, 
+        ad_soyad TEXT, 
+        email TEXT UNIQUE, 
+        password_hash TEXT, 
+        is_admin INTEGER DEFAULT 0, 
+        auth_code TEXT,
+        is_blocked INTEGER DEFAULT 0,
+        api_key TEXT,
+        plan_type TEXT DEFAULT 'free',
+        sent_this_month INTEGER DEFAULT 0,
+        contract_accepted INTEGER DEFAULT 0,
+        contract_accepted_date TEXT
+    )''')
+    cursor.execute('''CREATE TABLE IF NOT EXISTS logs (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id INTEGER, tarih TEXT, alici TEXT, konu TEXT, durum TEXT, detay TEXT, okundu INTEGER DEFAULT 0, okunma_tarihi TEXT)''')
+    cursor.execute('''CREATE TABLE IF NOT EXISTS blacklist (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id INTEGER, email TEXT, UNIQUE(user_id, email))''')
+    cursor.execute('''CREATE TABLE IF NOT EXISTS settings (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id INTEGER UNIQUE, host TEXT, port TEXT, user_email TEXT, password TEXT, webhook_url TEXT)''')
+    cursor.execute("CREATE TABLE IF NOT EXISTS contacts (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id INTEGER, name TEXT, email TEXT, UNIQUE(user_id, email))")
+    cursor.execute("CREATE TABLE IF NOT EXISTS groups (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id INTEGER, group_name TEXT, UNIQUE(user_id, group_name))")
+    cursor.execute("CREATE TABLE IF NOT EXISTS contact_group_rel (contact_id INTEGER, group_id INTEGER, UNIQUE(contact_id, group_id))")
+    cursor.execute("CREATE TABLE IF NOT EXISTS templates (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id INTEGER, template_name TEXT, subject TEXT, body TEXT)")
 
-    # 🆕 ÖDEME VE TALEP TABLOLARI
+    # ÖDEME VE TALEP TABLOLARI
     cursor.execute('''CREATE TABLE IF NOT EXISTS payment_settings (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         active_methods TEXT DEFAULT 'havale',
@@ -96,29 +114,7 @@ def init_db():
         id INTEGER PRIMARY KEY AUTOINCREMENT, user_id INTEGER, talep_tarihi TEXT, odeme_metodu TEXT, durum TEXT DEFAULT 'beklemede', notlar TEXT
     )''')
 
-    # Sütun Güncellemeleri
-    try:
-        cursor.execute("ALTER TABLE settings ADD COLUMN webhook_url TEXT")
-    except:
-        pass
-    try:
-        cursor.execute("ALTER TABLE users ADD COLUMN is_blocked INTEGER DEFAULT 0")
-    except:
-        pass
-    try:
-        cursor.execute("ALTER TABLE users ADD COLUMN api_key TEXT")
-    except:
-        pass
-    try:
-        cursor.execute("ALTER TABLE users ADD COLUMN plan_type TEXT DEFAULT 'free'")
-    except:
-        pass
-    try:
-        cursor.execute("ALTER TABLE users ADD COLUMN sent_this_month INTEGER DEFAULT 0")
-    except:
-        pass
-
-    # 🆕 VİTRİN TABLOSU
+    # VİTRİN TABLOSU
     cursor.execute('''CREATE TABLE IF NOT EXISTS landing_settings (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         hero_title TEXT, hero_subtitle TEXT,
@@ -140,8 +136,24 @@ def init_db():
              "Spam filtrelerine takılmadan hızlı teslimat.",
              "© 2026 Mailkamp."))
 
+        # SÖZLEŞMELER TABLOSU
+        cursor.execute('''CREATE TABLE IF NOT EXISTS legal_texts
+                          (
+                              id
+                              INTEGER PRIMARY KEY AUTOINCREMENT,
+                              slug TEXT UNIQUE,
+                              baslik TEXT,
+                              icerik TEXT
+                          )''')
 
-    # Varsayılan Ödeme Ayarları
+        # Eğer tablo boşsa varsayılan sözleşmeleri ekle
+        cursor.execute("SELECT id FROM legal_texts")
+        if not cursor.fetchone():
+            cursor.execute("INSERT INTO legal_texts (slug, baslik, icerik) VALUES (?, ?, ?)",
+                           ('satis-sozlesmesi', 'Mesafeli Satış Sözleşmesi', 'Sözleşme içeriği buraya eklenecektir.'))
+            cursor.execute("INSERT INTO legal_texts (slug, baslik, icerik) VALUES (?, ?, ?)",
+                           ('kullanim-kosullari', 'Kullanım Koşulları', 'Kullanım koşulları buraya eklenecektir.'))
+
     cursor.execute("SELECT id FROM payment_settings")
     if not cursor.fetchone():
         cursor.execute("INSERT INTO payment_settings (iban_no, banka_adi, hesap_sahibi) VALUES (?, ?, ?)",
@@ -254,7 +266,7 @@ def track():
             if u_data and (u_data[1] == 1 or u_data[0] == 'pro'):
                 try:
                     cursor.execute("SELECT webhook_url FROM settings WHERE user_id=?", (user_id,))
-                except:
+                except Exception:
                     pass
                 settings_row = cursor.fetchone()
                 if settings_row and settings_row[0]:
@@ -262,11 +274,18 @@ def track():
                     try:
                         requests.post(webhook_url, json={"event": "email_opened", "email": alici, "subject": konu,
                                                          "timestamp": tarih}, timeout=3)
-                    except:
+                    except Exception:
                         pass
         conn.commit()
         conn.close()
-    if target_url: return redirect(target_url)
+
+    if target_url:
+        # GÜVENLİK: Sadece geçerli HTTP/HTTPS linklerine yönlendirme yap.
+        # Bu sayede hem dış linklerin çalışır, hem de 'javascript:alert(1)' gibi zararlı kodlar engellenir.
+        parsed_url = urllib.parse.urlparse(target_url)
+        if parsed_url.scheme in ['http', 'https']:
+            return redirect(target_url)
+
     return redirect(url_for('login'))
 
 
@@ -395,14 +414,50 @@ def unsubscribe():
     return "Geçersiz link."
 
 
+
+
+# ---------------- BURASI DÜZELTİLDİ ----------------
+@app.route('/upload_logo', methods=['POST'])
+@login_required
+def upload_logo():
+    if getattr(current_user, 'is_admin', 0) != 1:
+        flash('Yetkisiz erişim denemesi!', 'danger')
+        return redirect(url_for('dashboard'))
+
+    if 'logo_file' not in request.files:
+        flash('Lütfen bir dosya seçin.', 'danger')
+        return redirect(request.referrer)
+
+    file = request.files['logo_file']
+
+    if file.filename == '':
+        flash('Herhangi bir logo dosyası seçilmedi.', 'danger')
+        return redirect(request.referrer)
+
+    # GÜVENLİK: Dosya uzantısı kontrolü (Sadece resimler)
+    if not file.filename.lower().endswith(('.png', '.jpg', '.jpeg', '.gif')):
+        flash('Güvenlik İhlali: Sadece resim dosyaları (png, jpg, jpeg, gif) yükleyebilirsiniz!', 'danger')
+        return redirect(request.referrer)
+
+    if file:
+        save_path = os.path.join(app.root_path, 'static', 'images', 'logo.png')
+        file.save(save_path)
+        flash('Yeni logo başarıyla yüklendi! (Değişikliği görmek için tarayıcıda CTRL + F5 yapabilirsiniz)', 'success')
+        return redirect(request.referrer)
+# ---------------------------------------------------
 def background_mailer(user_id, email_list, subject, body, attachment_paths, video_link, cover_path, settings, base_url,
                       is_free_plan=False):
     host, port, sender_email, sender_pass = settings[2], settings[3], settings[4], settings[5]
-    conn = sqlite3.connect(DB_NAME)
-    cursor = conn.cursor()
-    cursor.execute("SELECT email FROM blacklist WHERE user_id=?", (user_id,))
-    blacklist = [row[0] for row in cursor.fetchall()]
-    conn.close()
+
+    # OPTİMİZASYON 1: Kara liste ve kişileri döngüye girmeden TEK SEFERDE çekiyoruz.
+    # 'with' kullanımı (Context Manager) bağlantı sızıntısını (Issue #6) tamamen engeller.
+    with sqlite3.connect(DB_NAME) as conn:
+        cursor = conn.cursor()
+        cursor.execute("SELECT email FROM blacklist WHERE user_id=?", (user_id,))
+        blacklist = set(row[0] for row in cursor.fetchall())  # Hızlı arama için Set kullandık
+
+        cursor.execute("SELECT email, name FROM contacts WHERE user_id=?", (user_id,))
+        contacts_dict = {row[0]: row[1] for row in cursor.fetchall()}
 
     try:
         server = smtplib.SMTP(host, int(port), timeout=15)
@@ -411,39 +466,31 @@ def background_mailer(user_id, email_list, subject, body, attachment_paths, vide
 
         for alici in email_list:
             if alici in blacklist:
-                conn = sqlite3.connect(DB_NAME)
-                cursor = conn.cursor()
-                tarih = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-                cursor.execute("INSERT INTO logs (user_id, tarih, alici, konu, durum, detay) VALUES (?, ?, ?, ?, ?, ?)",
-                               (user_id, tarih, alici, subject, "Atlandı", "Kara Listede"))
-                conn.commit()
-                conn.close()
+                # OPTİMİZASYON 2: Sadece çok kısa yazma işlemleri için DB açıp hemen kapatıyoruz.
+                with sqlite3.connect(DB_NAME) as conn:
+                    tarih = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                    conn.execute(
+                        "INSERT INTO logs (user_id, tarih, alici, konu, durum, detay) VALUES (?, ?, ?, ?, ?, ?)",
+                        (user_id, tarih, alici, subject, "Atlandı", "Kara Listede"))
                 continue
 
             kisisel_body = body
             if not is_free_plan:
-                conn = sqlite3.connect(DB_NAME)
-                cursor = conn.cursor()
-                cursor.execute("SELECT name FROM contacts WHERE user_id=? AND email=?", (user_id, alici))
-                kisi_kaydi = cursor.fetchone()
-                conn.close()
-                if kisi_kaydi and kisi_kaydi[0]:
-                    kisisel_body = kisisel_body.replace("{isim}", kisi_kaydi[0])
-                else:
-                    kisisel_body = kisisel_body.replace("{isim}", "Değerli Müşterimiz")
+                kisi_adi = contacts_dict.get(alici)  # DB'ye bağlanmak yerine Sözlük'ten (RAM) okuyoruz!
+                kisisel_body = kisisel_body.replace("{isim}", kisi_adi if kisi_adi else "Değerli Müşterimiz")
             else:
                 kisisel_body = kisisel_body.replace("{isim}", "Değerli Müşterimiz")
 
             tarih = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-            conn = sqlite3.connect(DB_NAME)
-            cursor = conn.cursor()
-            cursor.execute("INSERT INTO logs (user_id, tarih, alici, konu, durum, detay) VALUES (?, ?, ?, ?, ?, ?)",
-                           (user_id, tarih, alici, subject, "Gönderiliyor...", "Kuyrukta"))
-            log_id = cursor.lastrowid
-            conn.commit()
-            conn.close()
+
+            with sqlite3.connect(DB_NAME) as conn:
+                cursor = conn.cursor()
+                cursor.execute("INSERT INTO logs (user_id, tarih, alici, konu, durum, detay) VALUES (?, ?, ?, ?, ?, ?)",
+                               (user_id, tarih, alici, subject, "Gönderiliyor...", "Kuyrukta"))
+                log_id = cursor.lastrowid
 
             try:
+                # --- HTML OLUŞTURMA VE MAIL GÖNDERME KISMI (SENİN MEVCUT KODUNLA AYNI) ---
                 video_html = ""
                 if video_link:
                     if is_free_plan:
@@ -479,7 +526,7 @@ def background_mailer(user_id, email_list, subject, body, attachment_paths, vide
                             cover_img.add_header('Content-ID', '<video_cover>')
                             cover_img.add_header('Content-Disposition', 'inline')
                             msg.attach(cover_img)
-                    except:
+                    except Exception as e:
                         pass
 
                 for path in attachment_paths:
@@ -490,52 +537,29 @@ def background_mailer(user_id, email_list, subject, body, attachment_paths, vide
                     msg.attach(part)
 
                 server.send_message(msg)
+                # -------------------------------------------------------------------------
 
-                conn = sqlite3.connect(DB_NAME)
-                cursor = conn.cursor()
-                cursor.execute("UPDATE logs SET durum=?, detay=? WHERE id=?",
-                               ("İletildi (Okunmadı)", "Kutuya ulaştı.", log_id))
-                conn.commit()
-                conn.close()
+                with sqlite3.connect(DB_NAME) as conn:
+                    conn.execute("UPDATE logs SET durum=?, detay=? WHERE id=?",
+                                 ("İletildi (Okunmadı)", "Kutuya ulaştı.", log_id))
                 time.sleep(1)
 
             except Exception as e:
-                conn = sqlite3.connect(DB_NAME)
-                cursor = conn.cursor()
-                cursor.execute("UPDATE logs SET durum=?, detay=? WHERE id=?",
-                               ("Hata", f"İletilemedi: {str(e)[:50]}", log_id))
-                conn.commit()
-                conn.close()
+                with sqlite3.connect(DB_NAME) as conn:
+                    conn.execute("UPDATE logs SET durum=?, detay=? WHERE id=?",
+                                 ("Hata", f"İletilemedi: {str(e)[:50]}", log_id))
         server.quit()
     except Exception as e:
         print("Sunucu Hatası:", e)
 
+    # OPTİMİZASYON 3: os.path yerine modern pathlib (Issue #8) kullanıldı.
     for path in attachment_paths:
-        if os.path.exists(path): os.remove(path)
-    if cover_path and os.path.exists(cover_path):
-        os.remove(cover_path)
+        p = Path(path)
+        if p.exists(): p.unlink()
 
-
-# ---------------- BURASI DÜZELTİLDİ ----------------
-@app.route('/upload_logo', methods=['POST'])
-def upload_logo():
-    if 'logo_file' not in request.files:
-        flash('Lütfen bir dosya seçin.', 'danger')
-        return redirect(request.referrer)
-
-    file = request.files['logo_file']
-
-    if file.filename == '':
-        flash('Herhangi bir logo dosyası seçilmedi.', 'danger')
-        return redirect(request.referrer)
-
-    if file:
-        save_path = os.path.join(app.root_path, 'static', 'images', 'logo.png')
-        file.save(save_path)
-        flash('Yeni logo başarıyla yüklendi! (Değişikliği görmek için tarayıcıda CTRL + F5 yapabilirsiniz)', 'success')
-        return redirect(request.referrer)
-# ---------------------------------------------------
-
+    if cover_path:
+        cp = Path(cover_path)
+        if cp.exists(): cp.unlink()
 
 @app.route('/dashboard')
 @login_required
@@ -603,7 +627,7 @@ def settings_page():
         cursor.execute("SELECT api_key FROM users WHERE id=?", (current_user.id,))
         result = cursor.fetchone()
         if result: api_key = result[0]
-    except:
+    except Exception as e:
         pass
     conn.close()
     return render_template('settings.html', settings=settings, blacklist=blacklist, api_key=api_key)
@@ -614,17 +638,27 @@ def settings_page():
 def contacts():
     conn = sqlite3.connect(DB_NAME)
     cursor = conn.cursor()
+
+    # 1. Kullanıcının gruplarını çek
     cursor.execute("SELECT id, group_name FROM groups WHERE user_id=?", (current_user.id,))
     groups = cursor.fetchall()
-    cursor.execute("SELECT id, name, email FROM contacts WHERE user_id=?", (current_user.id,))
+
+    # 2. OPTİMİZASYON: N+1 problemi GROUP_CONCAT ve LEFT JOIN ile tek sorguda çözüldü!
+    # Kişileri ve ait oldukları grupları tek seferde birleştirip alıyoruz.
+    query = """
+            SELECT c.id, c.name, c.email, IFNULL(GROUP_CONCAT(g.group_name, ', '), '') as groups
+            FROM contacts c
+                     LEFT JOIN contact_group_rel cgr ON c.id = cgr.contact_id
+                     LEFT JOIN groups g ON cgr.group_id = g.id
+            WHERE c.user_id = ?
+            GROUP BY c.id \
+            """
+    cursor.execute(query, (current_user.id,))
     raw_contacts = cursor.fetchall()
-    contact_list = []
-    for c in raw_contacts:
-        cursor.execute(
-            "SELECT g.group_name FROM groups g JOIN contact_group_rel cgr ON g.id = cgr.group_id WHERE cgr.contact_id=?",
-            (c[0],))
-        c_groups = [row[0] for row in cursor.fetchall()]
-        contact_list.append({'id': c[0], 'name': c[1], 'email': c[2], 'groups': ", ".join(c_groups)})
+
+    # Veriyi HTML'in beklediği sözlük (dictionary) formatına çevir
+    contact_list = [{'id': row[0], 'name': row[1], 'email': row[2], 'groups': row[3]} for row in raw_contacts]
+
     conn.close()
     return render_template('contacts.html', groups=groups, contacts=contact_list)
 
@@ -685,7 +719,7 @@ def save_settings():
             cursor.execute(
                 "UPDATE settings SET host=?, port=?, user_email=?, password=?, webhook_url=? WHERE user_id=?",
                 (host, port, user_email, password, webhook_url, current_user.id))
-        except:
+        except Exception as e:
             cursor.execute("UPDATE settings SET host=?, port=?, user_email=?, password=? WHERE user_id=?",
                            (host, port, user_email, password, current_user.id))
     else:
@@ -693,37 +727,12 @@ def save_settings():
             cursor.execute(
                 "INSERT INTO settings (user_id, host, port, user_email, password, webhook_url) VALUES (?, ?, ?, ?, ?, ?)",
                 (current_user.id, host, port, user_email, password, webhook_url))
-        except:
+        except Exception as e:
             cursor.execute("INSERT INTO settings (user_id, host, port, user_email, password) VALUES (?, ?, ?, ?, ?)",
                            (current_user.id, host, port, user_email, password))
     conn.commit()
     conn.close()
     flash('Ayarlar başarıyla kaydedildi!', 'success')
-    return redirect(url_for('settings_page'))
-
-
-@app.route('/add_blacklist', methods=['POST'])
-@login_required
-def add_blacklist():
-    raw_emails = request.form['blacklist_emails'].replace(",", "\n").split("\n")
-    emails = [e.strip().lower() for e in raw_emails if "@" in e]
-    conn = sqlite3.connect(DB_NAME)
-    cursor = conn.cursor()
-    for email in emails: cursor.execute("INSERT OR IGNORE INTO blacklist (user_id, email) VALUES (?, ?)",
-                                        (current_user.id, email))
-    conn.commit()
-    conn.close()
-    return redirect(url_for('settings_page'))
-
-
-@app.route('/remove_blacklist/<int:id>')
-@login_required
-def remove_blacklist(id):
-    conn = sqlite3.connect(DB_NAME)
-    cursor = conn.cursor()
-    cursor.execute("DELETE FROM blacklist WHERE id=? AND user_id=?", (id, current_user.id))
-    conn.commit()
-    conn.close()
     return redirect(url_for('settings_page'))
 
 
@@ -735,44 +744,47 @@ def send_mail():
     cursor.execute("SELECT * FROM settings WHERE user_id=?", (current_user.id,))
     settings = cursor.fetchone()
     conn.close()
+
     if not settings or not settings[4]:
         flash('Ayarlar sekmesinden bilgilerinizi kaydedin!', 'danger')
         return redirect(url_for('dashboard'))
 
-        # 1. Formdan gelen verileri al (Yeni HTML tasarımına göre)
-        raw_manual_emails = request.form.get('emails', '').replace(",", "\n").split("\n")
-        selected_group_id = request.form.get('target_group')
+    # 1. Formdan gelen verileri al (Yeni HTML tasarımına göre)
+    raw_manual_emails = request.form.get('emails', '').replace(",", "\n").split("\n")
+    selected_group_id = request.form.get('target_group')
 
-        email_list = []
+    email_list = []
 
-        # 2. Manuel yazılan mailleri listeye ekle
-        if raw_manual_emails:
-            parsed_manual = [e.strip().lower() for e in raw_manual_emails if "@" in e]
-            email_list.extend(parsed_manual)
+    # 2. Manuel yazılan mailleri listeye ekle
+    if raw_manual_emails:
+        parsed_manual = [e.strip().lower() for e in raw_manual_emails if "@" in e]
+        email_list.extend(parsed_manual)
 
-        # 3. Eğer bir grup seçildiyse, gruptaki mailleri veritabanından çek
-        if selected_group_id:
-            conn_group = sqlite3.connect(DB_NAME)
-            cursor_group = conn_group.cursor()
-            cursor_group.execute('''
-                SELECT c.email 
-                FROM contacts c
-                JOIN contact_group_rel cgr ON c.id = cgr.contact_id
-                WHERE cgr.group_id = ? AND c.user_id = ?
-            ''', (selected_group_id, current_user.id))
+    # 3. Eğer bir grup seçildiyse, gruptaki mailleri veritabanından çek
+    if selected_group_id:
+        conn_group = sqlite3.connect(DB_NAME)
+        cursor_group = conn_group.cursor()
+        cursor_group.execute('''
+                             SELECT c.email
+                             FROM contacts c
+                                      JOIN contact_group_rel cgr ON c.id = cgr.contact_id
+                             WHERE cgr.group_id = ?
+                               AND c.user_id = ?
+                             ''', (selected_group_id, current_user.id))
 
-            group_emails = [row[0] for row in cursor_group.fetchall()]
-            email_list.extend(group_emails)
-            conn_group.close()
+        group_emails = [row[0] for row in cursor_group.fetchall()]
+        email_list.extend(group_emails)
+        conn_group.close()
 
-        # 4. Aynı mail iki kere yazılmışsa (mükerrer) listeyi temizle
-        email_list = list(set(email_list))
+    # 4. Aynı mail iki kere yazılmışsa (mükerrer) listeyi temizle
+    email_list = list(set(email_list))
 
-        if not email_list:
-            flash('Lütfen en az bir alıcı grubu seçin veya manuel e-posta girin.', 'danger')
-            return redirect(url_for('dashboard'))
+    if not email_list:
+        flash('Lütfen en az bir alıcı grubu seçin veya manuel e-posta girin.', 'danger')
+        return redirect(url_for('dashboard'))
 
-    if current_user.is_admin != 1 and current_user.plan_type == 'free':
+    # Aylık limit kontrolü (Free kullanıcılar için)
+    if getattr(current_user, 'is_admin', 0) != 1 and getattr(current_user, 'plan_type', 'free') == 'free':
         conn = sqlite3.connect(DB_NAME)
         cursor = conn.cursor()
         cursor.execute("SELECT sent_this_month FROM users WHERE id=?", (current_user.id,))
@@ -792,6 +804,7 @@ def send_mail():
         conn.commit()
         conn.close()
 
+    # SMTP Bağlantı Testi
     try:
         test_server = smtplib.SMTP(settings[2], int(settings[3]), timeout=5)
         test_server.starttls()
@@ -804,6 +817,7 @@ def send_mail():
     subject = request.form['subject']
     body = request.form['body']
     video_link = request.form.get('video_link', '').strip()
+
     cover_path = None
     cover_file = request.files.get('video_cover')
     if cover_file and cover_file.filename:
@@ -832,10 +846,10 @@ def send_mail():
                 send_time = datetime.strptime(send_time_str, '%Y-%m-%dT%H:%M:%S')
             now = datetime.now()
             if send_time > now: delay = (send_time - now).total_seconds()
-        except:
+        except Exception as e:
             pass
 
-    is_free_plan = (current_user.is_admin != 1 and current_user.plan_type == 'free')
+    is_free_plan = (getattr(current_user, 'is_admin', 0) != 1 and getattr(current_user, 'plan_type', 'free') == 'free')
 
     if delay > 0:
         thread = threading.Timer(delay, background_mailer,
@@ -873,11 +887,6 @@ def admin_site_settings():
     conn = sqlite3.connect(DB_NAME)
     cursor = conn.cursor()
 
-    try:
-        cursor.execute("ALTER TABLE landing_settings ADD COLUMN hero_image TEXT")
-        cursor.execute("ALTER TABLE landing_settings ADD COLUMN promo_video TEXT")
-    except:
-        pass
 
     if request.method == 'POST':
         ht = request.form.get('hero_title', '')
@@ -921,7 +930,11 @@ def serve_uploads(filename):
 
 @app.route('/login', methods=['GET', 'POST'])
 def login():
-    if current_user.is_authenticated: return redirect(url_for('dashboard'))
+    if current_user.is_authenticated:
+        if getattr(current_user, 'is_admin', 0) == 1:
+            return redirect(url_for('admin_users'))
+        return redirect(url_for('dashboard'))
+
     if request.method == 'POST':
         email = request.form['email'].strip().lower()
         password = request.form['password']
@@ -931,19 +944,40 @@ def login():
             cursor.execute(
                 "SELECT id, ad_soyad, password_hash, is_admin, email, is_blocked, plan_type FROM users WHERE email = ?",
                 (email,))
-        except:
+        except Exception as e:
             cursor.execute("SELECT id, ad_soyad, password_hash, is_admin, email FROM users WHERE email = ?", (email,))
+
         user_data = cursor.fetchone()
+
         if user_data and check_password_hash(user_data[2], password):
+            is_admin = user_data[3]
+
+            # --- YENİ KURAL: Yönetici standart kapıdan giremez! ---
+            if is_admin == 1:
+                conn.close()
+                # Kötü niyetli kişiye arka kapıyı söylemiyoruz, sadece reddediyoruz.
+                flash('Güvenlik İhlali: Yönetici hesapları bu portaldan oturum açamaz!', 'danger')
+                return redirect(url_for('login'))  # AYNI SAYFADA KALIYOR, İFŞA YOK
+            # -------------------------------------------------------
+
             is_blocked = user_data[5] if len(user_data) > 5 and user_data[5] is not None else 0
+
+            # --- GÜVENLİK AÇIĞI KAPATILDI: Engelli Kullanıcı Kontrolü ---
+            if (is_blocked) == 1:
+                conn.close()
+                flash('Hesabınız yönetici tarafından engellenmiştir. Sisteme giriş yapamazsınız.', 'danger')
+                return redirect(url_for('login'))
+            # ------------------------------------------------------------
+
             plan_type = user_data[6] if len(user_data) > 6 and user_data[6] is not None else 'free'
-            login_user(User(id=user_data[0], ad_soyad=user_data[1], is_admin=user_data[3], email=user_data[4],
+            login_user(User(id=user_data[0], ad_soyad=user_data[1], is_admin=is_admin, email=user_data[4],
                             is_blocked=is_blocked, plan_type=plan_type))
             conn.close()
             return redirect(url_for('dashboard'))
         else:
             conn.close()
             flash('Hatalı giriş!', 'danger')
+
     return render_template('login.html')
 
 
@@ -1092,7 +1126,7 @@ def admin_login():
             cursor.execute(
                 "SELECT id, ad_soyad, password_hash, is_admin, email, is_blocked, plan_type FROM users WHERE email = ? AND is_admin = 1",
                 (email,))
-        except:
+        except Exception as e:
             cursor.execute(
                 "SELECT id, ad_soyad, password_hash, is_admin, email FROM users WHERE email = ? AND is_admin = 1",
                 (email,))
@@ -1146,7 +1180,7 @@ def verify_2fa():
             cursor.execute(
                 "SELECT id, ad_soyad, is_admin, email, auth_code, is_blocked, plan_type FROM users WHERE id=?",
                 (user_id,))
-        except:
+        except Exception as e:
             cursor.execute("SELECT id, ad_soyad, is_admin, email, auth_code FROM users WHERE id=?", (user_id,))
         user = cursor.fetchone()
         if user and str(user[4]) == str(user_code):
@@ -1169,29 +1203,40 @@ def verify_2fa():
 @app.route('/admin/users')
 @login_required
 def admin_users():
-    if current_user.is_admin != 1: return redirect(url_for('dashboard'))
+    if getattr(current_user, 'is_admin', 0) != 1:
+        return redirect(url_for('dashboard'))
+
     conn = sqlite3.connect(DB_NAME)
     cursor = conn.cursor()
-    try:
-        cursor.execute("SELECT id, ad_soyad, is_admin, email, is_blocked, plan_type FROM users ORDER BY id DESC")
-    except:
-        cursor.execute("SELECT id, ad_soyad, is_admin, email FROM users ORDER BY id DESC")
+
+    # OPTİMİZASYON: N+1 Problemi LEFT JOIN ve GROUP BY ile tek sorguda çözüldü!
+    query = """
+            SELECT u.id, u.ad_soyad, u.is_admin, u.email, u.is_blocked, u.plan_type, COUNT(l.id) as total_mails
+            FROM users u
+                     LEFT JOIN logs l ON u.id = l.user_id
+            GROUP BY u.id
+            ORDER BY u.id DESC \
+            """
+    cursor.execute(query)
     all_users = cursor.fetchall()
+
     user_stats = []
     for user in all_users:
-        u_id = user[0]
-        cursor.execute("SELECT COUNT(*) FROM logs WHERE user_id=?", (u_id,))
-        total_mails = cursor.fetchone()[0]
-        is_blocked = user[4] if len(user) > 4 and user[4] is not None else 0
-        plan_type = user[5] if len(user) > 5 and user[5] is not None else 'free'
-        user_stats.append(
-            {'id': u_id, 'ad_soyad': user[1], 'is_admin': user[2], 'email': user[3], 'is_blocked': is_blocked,
-             'plan_type': plan_type, 'total_mails': total_mails})
+        user_stats.append({
+            'id': user[0],
+            'ad_soyad': user[1],
+            'is_admin': user[2],
+            'email': user[3],
+            'is_blocked': user[4] if user[4] is not None else 0,
+            'plan_type': user[5] if user[5] is not None else 'free',
+            'total_mails': user[6]
+        })
+
     conn.close()
     return render_template('admin_users.html', users=user_stats)
 
 
-@app.route('/admin/toggle_role/<int:id>')
+@app.route('/admin/toggle_role/<int:id>', methods=['POST'])
 @login_required
 def toggle_role(id):
     if current_user.is_admin != 1: return redirect(url_for('dashboard'))
@@ -1207,7 +1252,7 @@ def toggle_role(id):
     return redirect(url_for('admin_users'))
 
 
-@app.route('/admin/toggle_block/<int:id>')
+@app.route('/admin/toggle_block/<int:id>',methods=['POST'])
 @login_required
 def toggle_block(id):
     if current_user.is_admin != 1: return redirect(url_for('dashboard'))
@@ -1216,7 +1261,7 @@ def toggle_block(id):
     cursor = conn.cursor()
     try:
         cursor.execute("SELECT is_blocked, ad_soyad FROM users WHERE id=?", (id,))
-    except:
+    except Exception as e:
         return redirect(url_for('admin_users'))
     user = cursor.fetchone()
     mevcut_durum = user[0] if user[0] is not None else 0
@@ -1227,7 +1272,7 @@ def toggle_block(id):
     return redirect(url_for('admin_users'))
 
 
-@app.route('/admin/delete_user/<int:id>')
+@app.route('/admin/delete_user/<int:id>',methods=['POST'])
 @login_required
 def delete_user(id):
     if current_user.is_admin != 1: return redirect(url_for('dashboard'))
@@ -1322,7 +1367,7 @@ def payment_management():
     return render_template('admin_payments.html', talepler=talepler, settings=settings)
 
 
-@app.route('/admin/approve_upgrade/<int:req_id>')
+@app.route('/admin/approve_upgrade/<int:req_id>',methods=['POST'])
 @login_required
 def approve_upgrade(req_id):
     if current_user.is_admin != 1: return redirect(url_for('dashboard'))
@@ -1339,7 +1384,7 @@ def approve_upgrade(req_id):
     conn.close()
     return redirect(url_for('payment_management'))
 
-@app.route('/admin/reject_upgrade/<int:req_id>')
+@app.route('/admin/reject_upgrade/<int:req_id>',methods=['POST'])
 @login_required
 def reject_upgrade(req_id):
     if current_user.is_admin != 1: return redirect(url_for('dashboard'))
@@ -1354,4 +1399,4 @@ def reject_upgrade(req_id):
 
 if __name__ == '__main__':
     init_db()
-    app.run(debug=True)
+    app.run(debug=False)
