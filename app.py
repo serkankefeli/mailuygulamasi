@@ -964,7 +964,7 @@ def send_mail():
     # UX İYİLEŞTİRMESİ: Ayarlar yoksa direkt ayarlar sayfasına yolla
     if not settings or not settings[4]:
         flash('Lütfen kampanya başlatmadan önce SMTP ayarlarınızı yapılandırın!', 'danger')
-        return redirect(url_for('settings'))
+        return redirect(url_for('settings_page'))
 
     raw_manual_emails = request.form.get('emails', '').replace(",", "\n").split("\n")
     selected_group_id = request.form.get('target_group')
@@ -1034,7 +1034,7 @@ def send_mail():
         test_server.quit()
     except Exception:
         flash('SMTP bağlantı hatası! Lütfen Ayarlar sayfasındaki bilgilerinizi kontrol edin.', 'danger')
-        return redirect(url_for('settings'))
+        return redirect(url_for('settings_page'))
 
     # Form Verilerini Al
     subject = request.form['subject']
@@ -1059,35 +1059,41 @@ def send_mail():
             file.save(filepath)
             attachment_paths.append(filepath)
 
-            # --- ZAMANLAMA HESAPLAMASI (SAAT DİLİMİ ÇÖZÜMLÜ) ---
-            send_time_str = request.form.get('send_time')
-            delay = 0
+    # --- ZAMANLAMA (SCHEDULING) HESAPLAMASI (TÜRKİYE SAATİ ÇÖZÜMÜ) ---
+    send_time_str = request.form.get('send_time')
+    delay = 0
 
-            if send_time_str:
-                try:
-                    from datetime import datetime, timedelta
-                    if len(send_time_str) == 16:
-                        send_time = datetime.strptime(send_time_str, '%Y-%m-%dT%H:%M')
-                    else:
-                        send_time = datetime.strptime(send_time_str, '%Y-%m-%dT%H:%M:%S')
+    if send_time_str:
+        try:
+            from datetime import datetime, timedelta
+            if len(send_time_str) == 16:
+                send_time = datetime.strptime(send_time_str, '%Y-%m-%dT%H:%M')
+            else:
+                send_time = datetime.strptime(send_time_str, '%Y-%m-%dT%H:%M:%S')
 
-                    # KRİTİK NOKTA: Sunucu saatine 3 saat ekleyip Türkiye saatine (TSİ) çeviriyoruz!
-                    now = datetime.now() + timedelta(hours=3)
+            # Sunucu saatine 3 saat ekleyip Türkiye saatine çeviriyoruz
+            now = datetime.now() + timedelta(hours=3)
 
-                    if send_time > now:
-                        delay = (send_time - now).total_seconds()
-                except Exception as e:
-                    print(f"Zamanlama Hatası: {e}")
+            if send_time > now:
+                delay = (send_time - now).total_seconds()
+                print(f"[SİSTEM] Zamanlama Aktif: Mail {delay} saniye sonra atılacak!", flush=True)
+        except Exception as e:
+            print(f"Zamanlama Hatası: {e}", flush=True)
+
+    base_url = request.host_url
+    is_free_plan = (getattr(current_user, 'is_admin', 0) != 1 and getattr(current_user, 'plan_type', 'free') == 'free')
 
     # --- GÖNDERİMİ BAŞLAT (ANINDA VEYA ZAMANLI) ---
     if delay > 0:
+        # İleri Tarihli Gönderim (Bekletme)
         thread = threading.Timer(delay, background_mailer,
                                  args=(current_user.id, email_list, subject, body, attachment_paths, video_link,
                                        cover_path, settings, base_url, is_free_plan))
         thread.daemon = True
         thread.start()
-        flash(f'Kampanya başarıyla zamanlandı ve sıraya alındı!', 'success')
+        flash('Kampanya başarıyla zamanlandı ve sıraya alındı!', 'success')
     else:
+        # Anında Gönderim
         thread = threading.Thread(target=background_mailer,
                                   args=(current_user.id, email_list, subject, body, attachment_paths, video_link,
                                         cover_path, settings, base_url, is_free_plan))
@@ -1096,17 +1102,6 @@ def send_mail():
         flash('Güvenli kampanya gönderimi başarıyla başlatıldı.', 'success')
 
     return redirect(url_for('dashboard'))
-
-
-import io
-import uuid
-from datetime import datetime
-from flask import send_file
-
-
-@app.route('/track_open/<int:log_id>')
-def track_open(log_id):
-    print(f"SİNYAL ALINDI: {log_id} numaralı e-posta şu an açıldı!")  # BU SATIRI EKLE
 
     with sqlite3.connect(DB_NAME) as conn:
         conn.execute("""
