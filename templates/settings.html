@@ -64,7 +64,7 @@
             <div class="card-body p-4">
 
                 {% if current_user.is_admin == 1 or current_user.plan_type == 'pro' %}
-                    <p class="small text-muted mb-3"MailKamp veya kendi web siteniz üzerinden kod yazarak otomatik mail fırlatmak (Tetiklemek) için aşağıdaki anahtarı kullanın.</p>
+                    <p class="small text-muted mb-3">MailKamp veya kendi web siteniz üzerinden kod yazarak otomatik mail fırlatmak (Tetiklemek) için aşağıdaki anahtarı kullanın.</p>
 
                     <label class="form-label small fw-bold text-dark">Güvenlik Anahtarınız (X-API-KEY)</label>
                     <div class="input-group mb-4">
@@ -100,26 +100,26 @@
         </div>
 
         <div class="card shadow-sm border-0 mb-4 border-start border-4 border-primary">
-    <div class="card-header bg-white py-3">
-        <h5 class="mb-0 fw-bold text-dark"><i class="fa-solid fa-image text-primary me-2"></i>Kurumsal Logo Ayarları</h5>
-    </div>
-    <div class="card-body p-4">
-        <form method="POST" action="/upload_logo" enctype="multipart/form-data">
-
-            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
-
-            <div class="mb-3 text-center bg-light p-3 rounded">
-            <p class="small text-muted mb-2">Mevcut Logo Önizleme:</p>
-            <img src="{{ url_for('static', filename='images/logo.png') }}" alt="EST Logo" style="max-height: 60px;">
+            <div class="card-header bg-white py-3">
+                <h5 class="mb-0 fw-bold text-dark"><i class="fa-solid fa-image text-primary me-2"></i>Kurumsal Logo Ayarları</h5>
             </div>
-            <div class="input-group">
-                <input type="file" name="logo_file" class="form-control" accept="image/*" required>
-                <button type="submit" class="btn btn-primary fw-bold">Yükle</button>
+            <div class="card-body p-4">
+                <form method="POST" action="/upload_logo" enctype="multipart/form-data">
+
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+
+                    <div class="mb-3 text-center bg-light p-3 rounded">
+                    <p class="small text-muted mb-2">Mevcut Logo Önizleme:</p>
+                    <img src="{{ url_for('static', filename='images/logo.png') }}" alt="EST Logo" style="max-height: 60px;">
+                    </div>
+                    <div class="input-group">
+                        <input type="file" name="logo_file" class="form-control" accept="image/*" required>
+                        <button type="submit" class="btn btn-primary fw-bold">Yükle</button>
+                    </div>
+                    <div class="form-text small mt-2">Öneri: Şeffaf arka planlı (PNG) ve yatay formattaki logolar Navbar'da daha şık durur.</div>
+                </form>
             </div>
-            <div class="form-text small mt-2">Öneri: Şeffaf arka planlı (PNG) ve yatay formattaki logolar Navbar'da daha şık durur.</div>
-        </form>
-    </div>
-</div>
+        </div>
 
         <div class="card shadow-sm border-0 border-start border-4 border-danger">
             <div class="card-header bg-white py-3">
@@ -141,7 +141,14 @@
                     {% for b in blacklist %}
                     <span class="badge bg-light text-dark border p-2 shadow-sm d-flex align-items-center">
                         {{ b[2] }}
-                        <a href="/remove_blacklist/{{ b[0] }}" class="text-danger ms-2" title="Engeli Kaldır"><i class="fa-solid fa-xmark"></i></a>
+
+                        <form action="/remove_blacklist/{{ b[0] }}" method="POST" class="m-0 p-0 ms-2" style="display:inline;">
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+                            <button type="submit" class="btn btn-link text-danger p-0 m-0 border-0" title="Engeli Kaldır">
+                                <i class="fa-solid fa-xmark"></i>
+                            </button>
+                        </form>
+
                     </span>
                     {% else %}
                     <span class="text-muted small italic">Kara listede kayıtlı e-posta bulunmuyor.</span>
@@ -149,7 +156,6 @@
                 </div>
             </div>
         </div>
-
 
     </div>
 </div>
