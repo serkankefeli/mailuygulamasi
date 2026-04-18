@@ -2,6 +2,45 @@
 
 {% block content %}
 <div class="row">
+    <div class="col-12 mb-4">
+        <div class="card border-0 shadow-sm bg-dark text-white overflow-hidden">
+            <div class="card-body p-0">
+                <div class="row g-0">
+                    <div class="col-md-8 p-4">
+                        <h4 class="fw-bold mb-2 text-primary"><i class="fa-solid fa-shield-halved me-2"></i> Güvenli SMTP Yapılandırması</h4>
+                        <p class="mb-3 text-light opacity-75">MailKamp, verilerinizi siber güvenlik standartlarına uygun olarak şifreler. Kesintisiz gönderim için e-posta servis sağlayıcınızın güncel SMTP bilgilerini girmeniz gerekmektedir.</p>
+
+                        <div class="row g-2">
+                            <div class="col-sm-4">
+                                <div class="bg-white bg-opacity-10 p-2 rounded small border border-white border-opacity-10 text-center">
+                                    <span class="fw-bold d-block">Gmail</span>
+                                    <span class="opacity-50">Port: 587 (TLS)</span>
+                                </div>
+                            </div>
+                            <div class="col-sm-4">
+                                <div class="bg-white bg-opacity-10 p-2 rounded small border border-white border-opacity-10 text-center">
+                                    <span class="fw-bold d-block">Outlook</span>
+                                    <span class="opacity-50">Port: 587 (STARTTLS)</span>
+                                </div>
+                            </div>
+                            <div class="col-sm-4">
+                                <div class="bg-white bg-opacity-10 p-2 rounded small border border-white border-opacity-10 text-center">
+                                    <span class="fw-bold d-block">Yandex</span>
+                                    <span class="opacity-50">Port: 465 (SSL)</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-4 bg-primary p-4 d-flex align-items-center">
+                        <div class="text-white">
+                            <h6 class="fw-bold mb-2"><i class="fa-solid fa-building-user me-2"></i> Kurumsal Kullanıcı Mısınız?</h6>
+                            <p class="small mb-0">Eğer şirket içi e-posta altyapısı kullanıyorsanız, erişim yetkileri ve özel port bilgileri için lütfen <b>IT Departmanınızdan</b> bilgi talep ediniz.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
 
     <div class="col-lg-6 mb-4">
         <div class="card shadow-sm border-0 h-100">
@@ -10,7 +49,6 @@
             </div>
             <div class="card-body p-4">
                 <form method="POST" action="/save_settings">
-
                     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
 
                     <div class="row">
@@ -27,7 +65,10 @@
                             <input type="email" name="smtp_user" class="form-control" value="{{ settings[4] if settings else '' }}" required>
                         </div>
                         <div class="col-md-6 mb-4">
-                            <label class="form-label small fw-bold text-secondary">Uygulama Şifresi</label>
+                            <label class="form-label small fw-bold text-secondary">
+                                Uygulama Şifresi
+                                <i class="fa-solid fa-circle-info ms-1 text-primary" data-bs-toggle="tooltip" title="Gmail/Outlook için 16 haneli özel uygulama şifresi."></i>
+                            </label>
                             <input type="password" name="smtp_pass" class="form-control" value="{{ settings[5] if settings else '' }}" required>
                         </div>
                     </div>
@@ -38,64 +79,44 @@
                         <label class="form-label fw-bold text-success"><i class="fa-solid fa-satellite-dish me-2"></i>Canlı Webhook URL (Opsiyonel)</label>
 
                         {% if current_user.is_admin == 1 or current_user.plan_type == 'pro' %}
-                            <input type="url" name="webhook_url" class="form-control border-success bg-light" placeholder="https://mailcamp.com/api/mail_okundu" value="{{ settings[6] if settings and settings|length > 6 else '' }}">
-                            <div class="form-text small mt-2">Müşterileriniz gönderdiğiniz maillerdeki linklere tıkladığı an (Okundu durumu), yazdığınız bu adrese anında JSON formatında bir POST sinyali fırlatılır.</div>
+                            <input type="url" name="webhook_url" class="form-control border-success bg-light" placeholder="https://siteniz.com/api/okundu" value="{{ settings[6] if settings and settings|length > 6 else '' }}">
+                            <div class="form-text small mt-2">Bu URL, kampanya etkinliklerini gerçek zamanlı izlemek için kullanılır.</div>
                         {% else %}
                             <div class="alert alert-light border shadow-sm text-center py-3">
                                 <i class="fa-solid fa-lock text-muted fa-2x mb-2"></i>
                                 <h6 class="fw-bold text-dark">Webhook Kapalı</h6>
-                                <p class="small text-muted mb-0">Canlı bildirim almak ve diğer sistemlerle konuşmak için lütfen <b>PRO Pakete</b> geçin.</p>
+                                <p class="small text-muted mb-0">Gerçek zamanlı sinyaller için <b>PRO Pakete</b> geçin.</p>
                             </div>
                         {% endif %}
                     </div>
 
-                    <button type="submit" class="btn btn-primary w-100 fw-bold py-2"><i class="fa-solid fa-floppy-disk me-2"></i>Tüm Ayarları Kaydet</button>
+                    <button type="submit" class="btn btn-primary w-100 fw-bold py-2"><i class="fa-solid fa-floppy-disk me-2"></i>Tüm Ayarları Kaydet ve Test Et</button>
                 </form>
             </div>
         </div>
     </div>
 
     <div class="col-lg-6 mb-4">
-
         <div class="card shadow-sm border-0 mb-4 border-start border-4 border-warning">
             <div class="card-header bg-white py-3">
                 <h5 class="mb-0 fw-bold text-dark"><i class="fa-solid fa-code text-warning me-2"></i>Geliştirici API Entegrasyonu</h5>
             </div>
             <div class="card-body p-4">
-
                 {% if current_user.is_admin == 1 or current_user.plan_type == 'pro' %}
-                    <p class="small text-muted mb-3">MailKamp veya kendi web siteniz üzerinden kod yazarak otomatik mail fırlatmak (Tetiklemek) için aşağıdaki anahtarı kullanın.</p>
-
                     <label class="form-label small fw-bold text-dark">Güvenlik Anahtarınız (X-API-KEY)</label>
                     <div class="input-group mb-4">
-                        <input type="text" class="form-control bg-light font-monospace text-danger fw-bold" value="{{ api_key if api_key else 'Henüz oluşturulmadı' }}" readonly>
+                        <input type="text" class="form-control bg-light font-monospace text-danger fw-bold" value="{{ api_key if api_key else 'Oluşturulmadı' }}" readonly>
                         <form method="POST" action="/generate_api_key">
-
                             <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
-
-                            <button class="btn btn-outline-dark" type="submit" title="Yeni Üret"><i class="fa-solid fa-rotate"></i></button>
+                            <button class="btn btn-outline-dark" type="submit"><i class="fa-solid fa-rotate"></i></button>
                         </form>
                     </div>
-
-                    <h6 class="fw-bold small text-primary mb-2"><i class="fa-solid fa-book me-1"></i> MailKamp İçin Örnek PHP Webhook Yakalama Kodu:</h6>
-                    <div class="bg-dark text-light p-3 rounded small font-monospace" style="line-height: 1.6;">
-                        <span class="text-success">// MailKamp'dan gelen canlı 'Okundu' sinyalini yakala:</span><br>
-                        $payload = json_decode(file_get_contents('php://input'), true);<br><br>
-                        <span class="text-warning">if</span> ($payload['event'] == <span class="text-info">'email_opened'</span>) {<br>
-                        &nbsp;&nbsp;&nbsp;&nbsp;$mail_adresi = $payload['email'];<br>
-                        &nbsp;&nbsp;&nbsp;&nbsp;$okunma_zamani = $payload['timestamp'];<br><br>
-                        &nbsp;&nbsp;&nbsp;&nbsp;<span class="text-success">// MailKamp Veritabanında güncelle:</span><br>
-                        &nbsp;&nbsp;&nbsp;&nbsp;$db->query("UPDATE faturalar SET durum='Okundu' WHERE musteri_mail='$mail_adresi'");<br>
-                        }
-                    </div>
                 {% else %}
-                    <div class="alert alert-light border shadow-sm text-center py-4 my-3">
+                    <div class="alert alert-light border shadow-sm text-center py-4">
                         <i class="fa-solid fa-code text-muted fa-3x mb-3"></i>
-                        <h5 class="fw-bold text-dark">Geliştirici Özellikleri Kilitli</h5>
-                        <p class="text-muted mb-0">REST API kullanarak sistem dışından otomatik mail göndermek <b>PRO Paket</b> ayrıcalığıdır.</p>
+                        <p class="text-muted mb-0">REST API erişimi <b>PRO Paket</b> ayrıcalığıdır.</p>
                     </div>
                 {% endif %}
-
             </div>
         </div>
 
@@ -103,20 +124,16 @@
             <div class="card-header bg-white py-3">
                 <h5 class="mb-0 fw-bold text-dark"><i class="fa-solid fa-image text-primary me-2"></i>Kurumsal Logo Ayarları</h5>
             </div>
-            <div class="card-body p-4">
+            <div class="card-body p-4 text-center">
                 <form method="POST" action="/upload_logo" enctype="multipart/form-data">
-
                     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
-
-                    <div class="mb-3 text-center bg-light p-3 rounded">
-                    <p class="small text-muted mb-2">Mevcut Logo Önizleme:</p>
-                    <img src="{{ url_for('static', filename='images/logo.png') }}" alt="EST Logo" style="max-height: 60px;">
+                    <div class="mb-3 bg-light p-3 rounded d-inline-block w-100 text-center">
+                        <img src="{{ url_for('static', filename='images/logo.png') }}" alt="Mevcut Logo" style="max-height: 50px;">
                     </div>
                     <div class="input-group">
                         <input type="file" name="logo_file" class="form-control" accept="image/*" required>
                         <button type="submit" class="btn btn-primary fw-bold">Yükle</button>
                     </div>
-                    <div class="form-text small mt-2">Öneri: Şeffaf arka planlı (PNG) ve yatay formattaki logolar Navbar'da daha şık durur.</div>
                 </form>
             </div>
         </div>
@@ -127,36 +144,37 @@
             </div>
             <div class="card-body p-4">
                 <form method="POST" action="/add_blacklist" class="mb-4">
-
                     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
-
-                    <label class="form-label fw-bold small text-secondary">Manuel Engellenecek E-Postalar</label>
                     <div class="input-group">
-                        <input type="email" name="blacklist_emails" class="form-control" placeholder="ornek@mail.com" required>
-                        <button type="submit" class="btn btn-danger fw-bold"><i class="fa-solid fa-plus me-1"></i> Ekle</button>
+                        <input type="email" name="blacklist_emails" class="form-control" placeholder="engelle@ornek.com" required>
+                        <button type="submit" class="btn btn-danger fw-bold"><i class="fa-solid fa-plus"></i></button>
                     </div>
                 </form>
-
-                <div class="d-flex flex-wrap gap-2" style="max-height: 150px; overflow-y: auto;">
+                <div class="d-flex flex-wrap gap-2" style="max-height: 120px; overflow-y: auto;">
                     {% for b in blacklist %}
                     <span class="badge bg-light text-dark border p-2 shadow-sm d-flex align-items-center">
                         {{ b[2] }}
-
                         <form action="/remove_blacklist/{{ b[0] }}" method="POST" class="m-0 p-0 ms-2" style="display:inline;">
                             <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
-                            <button type="submit" class="btn btn-link text-danger p-0 m-0 border-0" title="Engeli Kaldır">
-                                <i class="fa-solid fa-xmark"></i>
-                            </button>
+                            <button type="submit" class="btn btn-link text-danger p-0 m-0 border-0"><i class="fa-solid fa-xmark"></i></button>
                         </form>
-
                     </span>
                     {% else %}
-                    <span class="text-muted small italic">Kara listede kayıtlı e-posta bulunmuyor.</span>
+                    <span class="text-muted small">Kayıt yok.</span>
                     {% endfor %}
                 </div>
             </div>
         </div>
-
     </div>
 </div>
+
+<script>
+// Tooltip'leri aktifleştirmek için
+document.addEventListener('DOMContentLoaded', function() {
+    var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'))
+    var tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
+        return new bootstrap.Tooltip(tooltipTriggerEl)
+    })
+});
+</script>
 {% endblock %}

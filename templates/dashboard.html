@@ -1,6 +1,48 @@
 {% extends "base.html" %}
+
 {% block content %}
 <div class="container-fluid mt-4">
+
+    <div class="modal fade" id="welcomeModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content border-0 shadow-lg">
+                <div class="modal-header bg-primary text-white py-3">
+                    <h5 class="modal-title fw-bold"><i class="fa-solid fa-rocket me-2"></i>MailKamp'a Hoş Geldiniz!</h5>
+                </div>
+                <div class="modal-body p-4">
+                    <p class="text-muted">Sistemi siber güvenlik standartlarında ve en verimli şekilde kullanmak için bu 3 adımı takip edin:</p>
+
+                    <div class="d-flex align-items-start mb-4 bg-light p-3 rounded-3">
+                        <div class="badge bg-primary p-2 me-3"><i class="fas fa-cog"></i></div>
+                        <div>
+                            <h6 class="fw-bold mb-1">1. SMTP Yapılandırması</h6>
+                            <small class="text-muted">Ayarlar sekmesinden mail altyapınızı kurun. Kurumsal bilgiler için IT departmanınıza danışın.</small>
+                        </div>
+                    </div>
+
+                    <div class="d-flex align-items-start mb-4 bg-light p-3 rounded-3">
+                        <div class="badge bg-success p-2 me-3"><i class="fas fa-address-book"></i></div>
+                        <div>
+                            <h6 class="fw-bold mb-1">2. Rehberinizi Hazırlayın</h6>
+                            <small class="text-muted">Kişilerinizi gruplayarak yükleyin. Kara liste (Blacklist) ayarlarınızı kontrol edin.</small>
+                        </div>
+                    </div>
+
+                    <div class="d-flex align-items-start bg-light p-3 rounded-3">
+                        <div class="badge bg-warning p-2 me-3"><i class="fas fa-paper-plane"></i></div>
+                        <div>
+                            <h6 class="fw-bold mb-1">3. Kampanyanızı Başlatın</h6>
+                            <small class="text-muted">Şablonunuzu oluşturun, {isim} etiketiyle kişiselleştirin ve testi yapın!</small>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer border-0">
+                    <button type="button" class="btn btn-primary w-100 fw-bold py-2 shadow" data-bs-dismiss="modal">Harika, Başlayalım!</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     {% if current_user.plan_type == 'free' and current_user.is_admin != 1 %}
     <div class="alert alert-warning shadow-sm border-0 mb-4 rounded-3 d-flex flex-column flex-md-row justify-content-between align-items-center">
         <div class="mb-3 mb-md-0">
@@ -16,34 +58,34 @@
     {% endif %}
 
     <div class="row mb-4">
-        <div class="col-md-3">
-            <div class="card shadow-sm border-primary border-bottom border-3 h-100">
+        <div class="col-md-3 mb-3">
+            <div class="card shadow-sm border-0 border-start border-4 border-primary h-100">
                 <div class="card-body">
-                    <h6 class="text-muted text-uppercase mb-2">Bu Ay Gönderilen</h6>
-                    <h3 class="mb-0 fw-bold">{{ stats.sent_this_month }} <small class="fs-6 text-muted">/ {% if current_user.plan_type == 'free' %}3000{% else %}Sınırsız{% endif %}</small></h3>
+                    <h6 class="text-muted text-uppercase small fw-bold">Bu Ay Gönderilen</h6>
+                    <h3 class="mb-0 fw-bold">{{ stats.sent_this_month }} <small class="fs-6 text-muted">/ {% if current_user.plan_type == 'free' %}3000{% else %}∞{% endif %}</small></h3>
                 </div>
             </div>
         </div>
-        <div class="col-md-3">
-            <div class="card shadow-sm border-success border-bottom border-3 h-100">
+        <div class="col-md-3 mb-3">
+            <div class="card shadow-sm border-0 border-start border-4 border-success h-100">
                 <div class="card-body">
-                    <h6 class="text-muted text-uppercase mb-2">Okunan (Açılan)</h6>
+                    <h6 class="text-muted text-uppercase small fw-bold">Okunan (Açılan)</h6>
                     <h3 class="mb-0 fw-bold text-success">{{ stats.read }}</h3>
                 </div>
             </div>
         </div>
-        <div class="col-md-3">
-            <div class="card shadow-sm border-warning border-bottom border-3 h-100">
+        <div class="col-md-3 mb-3">
+            <div class="card shadow-sm border-0 border-start border-4 border-warning h-100">
                 <div class="card-body">
-                    <h6 class="text-muted text-uppercase mb-2">İletilen (Bekleyen)</h6>
+                    <h6 class="text-muted text-uppercase small fw-bold">Bekleyen</h6>
                     <h3 class="mb-0 fw-bold text-warning">{{ stats.unread }}</h3>
                 </div>
             </div>
         </div>
-        <div class="col-md-3">
-            <div class="card shadow-sm border-danger border-bottom border-3 h-100">
+        <div class="col-md-3 mb-3">
+            <div class="card shadow-sm border-0 border-start border-4 border-danger h-100">
                 <div class="card-body">
-                    <h6 class="text-muted text-uppercase mb-2">Hatalı / Atlanan</h6>
+                    <h6 class="text-muted text-uppercase small fw-bold">Hatalı / Filtrelenen</h6>
                     <h3 class="mb-0 fw-bold text-danger">{{ stats.error + stats.skipped }}</h3>
                 </div>
             </div>
@@ -54,21 +96,20 @@
         <div class="col-lg-8 mb-4">
             <div class="card shadow-sm border-0 rounded-3 h-100">
                 <div class="card-header bg-white py-3 border-bottom d-flex justify-content-between align-items-center">
-                    <h5 class="mb-0 fw-bold text-dark"><i class="fas fa-paper-plane text-primary me-2"></i> Yeni Kampanya Oluştur</h5>
-                    <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-toggle="modal" data-bs-target="#saveTemplateModal">
-                        <i class="fas fa-save me-1"></i> Şablon Kaydet
+                    <h5 class="mb-0 fw-bold text-dark"><i class="fas fa-paper-plane text-primary me-2"></i> Kampanya Oluşturucu</h5>
+                    <button type="button" class="btn btn-sm btn-outline-primary" data-bs-toggle="modal" data-bs-target="#saveTemplateModal">
+                        <i class="fas fa-save me-1"></i> Mevcutu Şablon Yap
                     </button>
                 </div>
 
-                <div class="card-body p-4 bg-light bg-opacity-50">
+                <div class="card-body p-4">
                     <form action="{{ url_for('send_mail') }}" method="POST" enctype="multipart/form-data">
-
                         <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
 
-                        <div class="row mb-4 bg-white p-3 rounded shadow-sm border border-light mx-0">
-                            <div class="col-md-6 border-end">
-                                <label class="form-label fw-bold text-dark"><i class="fas fa-users text-primary me-2"></i>Alıcı Grubu Seçin</label>
-                                <select class="form-select border-secondary border-opacity-25" name="target_group">
+                        <div class="row mb-4 p-3 rounded-3 border bg-light">
+                            <div class="col-md-6 border-md-end">
+                                <label class="form-label fw-bold small text-primary text-uppercase">1. Alıcı Grubu</label>
+                                <select class="form-select border-0 shadow-sm" name="target_group">
                                     <option value="">-- Sadece Manuel Gireceğim --</option>
                                     {% if groups %}
                                         {% for group in groups %}
@@ -76,23 +117,21 @@
                                         {% endfor %}
                                     {% endif %}
                                 </select>
-                                <small class="text-muted"><i class="fas fa-info-circle me-1"></i>Rehberinizdeki bir gruba toplu gönderim yapar.</small>
                             </div>
                             <div class="col-md-6 ps-md-4 mt-3 mt-md-0">
-                                <label class="form-label fw-bold text-dark"><i class="fas fa-pen text-secondary me-2"></i>Ekstra Alıcılar (Opsiyonel)</label>
-                                <textarea class="form-control border-secondary border-opacity-25" name="emails" rows="1" placeholder="ornek@mail.com, test@mail.com..."></textarea>
-                                <small class="text-muted">Virgül veya alt alta ayırarak yazın.</small>
+                                <label class="form-label fw-bold small text-primary text-uppercase">2. Ekstra Alıcılar</label>
+                                <textarea class="form-control border-0 shadow-sm" name="emails" rows="1" placeholder="virgül ile ayırarak yazın..."></textarea>
                             </div>
                         </div>
 
                         <div class="row mb-3">
                             <div class="col-md-8">
-                                <label class="form-label fw-bold"><i class="fas fa-heading text-secondary me-2"></i>Konu</label>
-                                <input type="text" class="form-control border-secondary border-opacity-25" name="subject" id="mailSubject" required placeholder="Kampanya Konusu">
+                                <label class="form-label fw-bold small">Kampanya Başlığı (Konu)</label>
+                                <input type="text" class="form-control" name="subject" id="mailSubject" required placeholder="Örn: %20 İndirim Fırsatını Kaçırmayın!">
                             </div>
                             <div class="col-md-4 mt-3 mt-md-0">
-                                <label class="form-label fw-bold"><i class="fas fa-magic text-warning me-2"></i>Kayıtlı Şablon Seç</label>
-                                <select class="form-select border-secondary border-opacity-25" id="templateSelect" onchange="loadTemplate(this.value)">
+                                <label class="form-label fw-bold small text-warning">Hızlı Şablonlar</label>
+                                <select class="form-select border-warning border-opacity-25" id="templateSelect" onchange="loadTemplate(this.value)">
                                     <option value="">-- Şablon Seç --</option>
                                     {% for tpl in templates %}
                                         <option value="{{ tpl[0] }}">{{ tpl[1] }}</option>
@@ -102,32 +141,30 @@
                         </div>
 
                         <div class="mb-4">
-                            <label class="form-label fw-bold"><i class="far fa-envelope text-secondary me-2"></i>Mesajınız (HTML Destekler)</label>
-                            <textarea name="body" id="mailBody" class="form-control border-secondary border-opacity-25" rows="6" placeholder="Kişiselleştirme için {isim} etiketini kullanabilirsiniz." required></textarea>
+                            <label class="form-label fw-bold small">E-Posta İçeriği</label>
+                            <textarea name="body" id="mailBody" class="form-control" rows="8" placeholder="Mesajınızı buraya yazın. HTML kodları veya {isim} etiketi kullanabilirsiniz." required></textarea>
                         </div>
 
                         <div class="accordion mb-4 shadow-sm" id="advancedSettingsAccordion">
-                            <div class="accordion-item border-0 rounded">
-                                <h2 class="accordion-header" id="headingAdvanced">
-                                    <button class="accordion-button collapsed fw-bold text-dark bg-white rounded" type="button" data-bs-toggle="collapse" data-bs-target="#collapseAdvanced" aria-expanded="false" aria-controls="collapseAdvanced">
-                                        <i class="fas fa-sliders-h me-2 text-primary"></i> Gelişmiş Ayarlar (Video, Ek Dosya, Zamanlama)
+                            <div class="accordion-item border-0">
+                                <h2 class="accordion-header">
+                                    <button class="accordion-button collapsed fw-bold text-dark bg-light rounded" type="button" data-bs-toggle="collapse" data-bs-target="#collapseAdvanced">
+                                        <i class="fas fa-sliders-h me-2 text-primary"></i> Medya & Zamanlama Ayarları
                                     </button>
                                 </h2>
-                                <div id="collapseAdvanced" class="accordion-collapse collapse" aria-labelledby="headingAdvanced" data-bs-parent="#advancedSettingsAccordion">
+                                <div id="collapseAdvanced" class="accordion-collapse collapse" data-bs-parent="#advancedSettingsAccordion">
                                     <div class="accordion-body bg-white border-top">
                                         <div class="row g-3">
-                                            <div class="col-md-6 border-end pe-md-4">
+                                            <div class="col-md-6 border-end pe-md-3">
                                                 <label class="form-label fw-bold small"><i class="fab fa-youtube text-danger me-1"></i> Video Linki</label>
-                                                <input type="url" name="video_link" class="form-control form-control-sm mb-3" placeholder="https://youtube.com/...">
-
-                                                <label class="form-label fw-bold small"><i class="fas fa-image text-success me-1"></i> Video Kapak Resmi</label>
+                                                <input type="url" name="video_link" class="form-control form-control-sm mb-3">
+                                                <label class="form-label fw-bold small"><i class="fas fa-image text-success me-1"></i> Kapak Resmi</label>
                                                 <input type="file" name="video_cover" class="form-control form-control-sm" accept="image/*">
                                             </div>
-                                            <div class="col-md-6 ps-md-4">
-                                                <label class="form-label fw-bold small"><i class="fas fa-paperclip text-secondary me-1"></i> Ek Dosyalar (PDF, JPG vb.)</label>
+                                            <div class="col-md-6 ps-md-3">
+                                                <label class="form-label fw-bold small"><i class="fas fa-paperclip text-secondary me-1"></i> Ek Dosya</label>
                                                 <input type="file" name="attachment" class="form-control form-control-sm mb-3" multiple>
-
-                                                <label class="form-label fw-bold small"><i class="fas fa-clock text-warning me-1"></i> İleri Tarihli Gönderim</label>
+                                                <label class="form-label fw-bold small"><i class="fas fa-clock text-warning me-1"></i> Gönderim Zamanı</label>
                                                 <input type="datetime-local" name="send_time" class="form-control form-control-sm">
                                             </div>
                                         </div>
@@ -137,81 +174,76 @@
                         </div>
 
                         <div class="d-grid">
-                            <button type="submit" class="btn btn-dark btn-lg fw-bold shadow">
-                                <i class="fas fa-paper-plane me-2"></i> Kampanyayı Başlat
+                            <button type="submit" class="btn btn-primary btn-lg fw-bold shadow py-3">
+                                <i class="fas fa-paper-plane me-2"></i> Güvenli Gönderimi Başlat
                             </button>
+                            <small class="text-center text-muted mt-2"><i class="fas fa-shield-alt me-1"></i> Kara liste (Blacklist) kontrolleri otomatik olarak uygulanacaktır.</small>
                         </div>
                     </form>
                 </div>
             </div>
         </div>
 
-        <div class="col-lg-4 mb-4">
-            <div class="card shadow-sm mb-4 border-0 rounded-3">
+        <div class="col-lg-4">
+            <div class="card shadow-sm border-0 rounded-3 mb-4">
                 <div class="card-header bg-white py-3 border-bottom">
-                    <h5 class="mb-0 fw-bold"><i class="fas fa-chart-line text-success me-2"></i> Son 7 Günlük Gönderim</h5>
+                    <h5 class="mb-0 fw-bold"><i class="fas fa-chart-line text-primary me-2"></i> Performans Takibi</h5>
                 </div>
                 <div class="card-body">
                     <canvas id="trendChart" height="200"></canvas>
                 </div>
             </div>
 
-            <div class="card shadow-sm border-0 bg-primary text-white text-center p-4 rounded-3">
-                <i class="fas fa-address-book fa-3x mb-3 opacity-50"></i>
-                <h4 class="fw-bold">Rehberini Yönet</h4>
-                <p class="small opacity-75 mb-4">Müşterilerini Excel'den aktar ve gruplara ayır.</p>
-                <a href="{{ url_for('contacts') }}" class="btn btn-light fw-bold shadow-sm w-100">Rehbere Git</a>
+            <div class="card shadow-sm border-0 bg-dark text-white p-4 rounded-3 text-center">
+                <div class="mb-3"><i class="fas fa-users-cog fa-3x opacity-25"></i></div>
+                <h5 class="fw-bold">Hızlı Kişi Yönetimi</h5>
+                <p class="small opacity-75 mb-4">Rehberinizi güncel tutun, daha yüksek etkileşim oranları yakalayın.</p>
+                <a href="{{ url_for('contacts') }}" class="btn btn-primary fw-bold w-100">Rehber ve Gruplara Git</a>
             </div>
         </div>
     </div>
 </div>
 
-<div class="modal fade" id="saveTemplateModal" tabindex="-1">
-    <div class="modal-dialog">
-        <div class="modal-content border-0 shadow">
-            <form action="{{ url_for('save_template') }}" method="POST">
-
-                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
-
-                <div class="modal-header bg-light">
-                    <h5 class="modal-title fw-bold">Şablon Olarak Kaydet</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-                </div>
-                <div class="modal-body">
-                    <div class="mb-3">
-                        <label class="form-label fw-bold">Şablon Adı</label>
-                        <input type="text" name="template_name" class="form-control" required placeholder="Örn: Hoşgeldin Maili">
-                    </div>
-                    <div class="alert alert-info border-0 py-2 small mb-0">
-                        <i class="fas fa-info-circle me-1"></i> Şu an ekranda yazılı olan Konu ve Mesaj içeriği bu isimle kaydedilecektir.
-                    </div>
-                </div>
-                <div class="modal-footer border-top-0">
-                    <button type="button" class="btn btn-light" data-bs-dismiss="modal">İptal</button>
-                    <button type="submit" class="btn btn-primary fw-bold" onclick="copyFormData()">Kaydet</button>
-                </div>
-                <input type="hidden" name="subject" id="modalSubject">
-                <input type="hidden" name="body" id="modalBody">
-            </form>
-        </div>
-    </div>
-</div>
+{% include 'modals/save_template.html' %}
 
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script>
-    // Şablon Modalı için verileri kopyalama
-    function copyFormData() {
-        document.getElementById('modalSubject').value = document.getElementById('mailSubject').value;
-        document.getElementById('modalBody').value = document.getElementById('mailBody').value;
-    }
+    document.addEventListener('DOMContentLoaded', function() {
+        // Hoş Geldin Modalı Gösterimi (İlk girişe özel mantık eklenebilir)
+        var myModal = new bootstrap.Modal(document.getElementById('welcomeModal'));
+        myModal.show();
 
-    // Şablon yükleme AJAX
+        // Grafik Çizimi (Chart.js)
+        const ctx = document.getElementById('trendChart').getContext('2d');
+        new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: {{ stats.trend_labels | tojson | safe }},
+                datasets: [{
+                    label: 'Gönderim',
+                    data: {{ stats.trend_counts | tojson | safe }},
+                    borderColor: '#0d6efd',
+                    backgroundColor: 'rgba(13, 110, 253, 0.05)',
+                    tension: 0.4,
+                    fill: true,
+                    pointRadius: 4,
+                    pointBackgroundColor: '#fff',
+                    pointBorderWidth: 2
+                }]
+            },
+            options: {
+                responsive: true,
+                plugins: { legend: { display: false } },
+                scales: {
+                    y: { beginAtZero: true, grid: { display: false } },
+                    x: { grid: { display: false } }
+                }
+            }
+        });
+    });
+
     function loadTemplate(id) {
-        if(!id) {
-            document.getElementById('mailSubject').value = '';
-            document.getElementById('mailBody').value = '';
-            return;
-        }
+        if(!id) return;
         fetch('/api/get_template/' + id)
         .then(res => res.json())
         .then(data => {
@@ -219,27 +251,5 @@
             if(data.body) document.getElementById('mailBody').value = data.body;
         });
     }
-
-    // Trend Grafiği (Chart.js)
-    const ctx = document.getElementById('trendChart').getContext('2d');
-    const trendChart = new Chart(ctx, {
-        type: 'line',
-        data: {
-            labels: {{ stats.trend_labels | tojson | safe }},
-        datasets: [{
-            label: 'Gönderilen Mail',
-                data: {{ stats.trend_counts | tojson | safe }},
-                borderColor: '#0d6efd',
-                backgroundColor: 'rgba(13, 110, 253, 0.1)',
-                tension: 0.4,
-                fill: true
-            }]
-        },
-        options: {
-            responsive: true,
-            plugins: { legend: { display: false } },
-            scales: { y: { beginAtZero: true, ticks: { precision: 0 } } }
-        }
-    });
 </script>
 {% endblock %}

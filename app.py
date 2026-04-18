@@ -956,9 +956,10 @@ def send_mail():
     settings = cursor.fetchone()
     conn.close()
 
+    # UX İYİLEŞTİRMESİ: Ayarlar yoksa direkt ayarlar sayfasına yolla
     if not settings or not settings[4]:
-        flash('Ayarlar sekmesinden bilgilerinizi kaydedin!', 'danger')
-        return redirect(url_for('dashboard'))
+        flash('Lütfen kampanya başlatmadan önce SMTP ayarlarınızı yapılandırın!', 'danger')
+        return redirect(url_for('settings'))
 
     raw_manual_emails = request.form.get('emails', '').replace(",", "\n").split("\n")
     selected_group_id = request.form.get('target_group')
@@ -986,23 +987,22 @@ def send_mail():
     # Mükerrer kayıtları temizle
     email_list = list(set(email_list))
 
-    # --- 🛡️ KARA LİSTE FİLTRESİ (BURASI ÇOK ÖNEMLİ) ---
+    # --- 🛡️ KARA LİSTE FİLTRESİ ---
     conn_bl = sqlite3.connect(DB_NAME)
     cursor_bl = conn_bl.cursor()
     cursor_bl.execute("SELECT email FROM blacklist WHERE user_id = ?", (current_user.id,))
     blacklisted_emails = [row[0].strip().lower() for row in cursor_bl.fetchall()]
     conn_bl.close()
 
-    # Filtreleme yapıyoruz
+    # Kara listede olmayanları ayıkla
     email_list = [email for email in email_list if email not in blacklisted_emails]
 
-    # Eğer listede kimse kalmadıysa hata vermemesi için hemen geri dönüyoruz
+    # Eğer listede kimse kalmadıysa hata vermemesi için dön
     if not email_list:
         flash('Gönderilecek geçerli e-posta kalmadı (Alıcılar kara listede olabilir).', 'warning')
         return redirect(url_for('dashboard'))
-    # ------------------------------------------------
 
-    # Plan ve Limit Kontrolü
+    # --- LİMİT KONTROLÜ ---
     if getattr(current_user, 'is_admin', 0) != 1 and getattr(current_user, 'plan_type', 'free') == 'free':
         conn = sqlite3.connect(DB_NAME)
         cursor = conn.cursor()
@@ -1011,7 +1011,7 @@ def send_mail():
         conn.close()
 
         if sent_count + len(email_list) > 3000:
-            flash(f'Limit aşımı! (Kalan: {max(0, 3000 - sent_count)}).', 'danger')
+            flash(f'Aylık 3.000 limitini aşıyorsunuz! (Kalan: {max(0, 3000 - sent_count)}).', 'danger')
             return redirect(url_for('dashboard'))
 
         conn = sqlite3.connect(DB_NAME)
@@ -1021,22 +1021,22 @@ def send_mail():
         conn.commit()
         conn.close()
 
-    # SMTP Testi
+    # --- SMTP GÜVENLİK TESTİ ---
     try:
         test_server = smtplib.SMTP(settings[2], int(settings[3]), timeout=5)
         test_server.starttls()
         test_server.login(settings[4], settings[5])
         test_server.quit()
     except Exception:
-        flash('SMTP bağlantı hatası! Bilgileri kontrol edin.', 'danger')
-        return redirect(url_for('dashboard'))
+        flash('SMTP bağlantı hatası! Lütfen Ayarlar sayfasındaki bilgilerinizi kontrol edin.', 'danger')
+        return redirect(url_for('settings'))
 
     # Form Verilerini Al
     subject = request.form['subject']
     body = request.form['body']
     video_link = request.form.get('video_link', '').strip()
 
-    # Dosya İşlemleri
+    # Dosya İşlemleri (Güvenli Yükleme)
     cover_path = None
     cover_file = request.files.get('video_cover')
     if cover_file and cover_file.filename:
@@ -1054,17 +1054,42 @@ def send_mail():
             file.save(filepath)
             attachment_paths.append(filepath)
 
+    # --- ZAMANLAMA (SCHEDULING) HESAPLAMASI ---
+    send_time_str = request.form.get('send_time')
+    delay = 0
+    if send_time_str:
+        try:
+            from datetime import datetime
+            if len(send_time_str) == 16:
+                send_time = datetime.strptime(send_time_str, '%Y-%m-%dT%H:%M')
+            else:
+                send_time = datetime.strptime(send_time_str, '%Y-%m-%dT%H:%M:%S')
+
+            now = datetime.now()
+            if send_time > now:
+                delay = (send_time - now).total_seconds()
+        except Exception:
+            pass  # Tarih formatı hatalıysa varsayılan olarak anında gönderir
+
     base_url = request.host_url
     is_free_plan = (getattr(current_user, 'is_admin', 0) != 1 and getattr(current_user, 'plan_type', 'free') == 'free')
 
-    # Arka planda mail gönderimini başlat
-    thread = threading.Thread(target=background_mailer,
-                              args=(current_user.id, email_list, subject, body, attachment_paths, video_link,
-                                    cover_path, settings, base_url, is_free_plan))
-    thread.daemon = True
-    thread.start()
+    # --- GÖNDERİMİ BAŞLAT (ANINDA VEYA ZAMANLI) ---
+    if delay > 0:
+        thread = threading.Timer(delay, background_mailer,
+                                 args=(current_user.id, email_list, subject, body, attachment_paths, video_link,
+                                       cover_path, settings, base_url, is_free_plan))
+        thread.daemon = True
+        thread.start()
+        flash(f'Kampanya başarıyla zamanlandı ve sıraya alındı!', 'success')
+    else:
+        thread = threading.Thread(target=background_mailer,
+                                  args=(current_user.id, email_list, subject, body, attachment_paths, video_link,
+                                        cover_path, settings, base_url, is_free_plan))
+        thread.daemon = True
+        thread.start()
+        flash('Güvenli kampanya gönderimi başarıyla başlatıldı.', 'success')
 
-    flash('Kampanya başarıyla başlatıldı.', 'success')
     return redirect(url_for('dashboard'))
 
 @app.route('/')
