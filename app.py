@@ -1,8 +1,7 @@
-from flask import Flask, render_template, request, redirect, url_for, flash, session, jsonify, send_file
+from flask import Flask, render_template, request, redirect, url_for, flash, session, jsonify, send_file, send_from_directory
 from flask_login import LoginManager, UserMixin, login_user, login_required, logout_user, current_user
 from werkzeug.security import generate_password_hash, check_password_hash
 from werkzeug.utils import secure_filename
-from flask import send_from_directory
 import sqlite3
 import os
 import threading
@@ -22,20 +21,14 @@ from email.mime.base import MIMEBase
 from email.mime.image import MIMEImage
 from email import encoders
 from functools import wraps
-from flask import Flask, render_template, request, redirect, url_for, flash, session, jsonify, send_file
-from flask_login import LoginManager, UserMixin, login_user, login_required, logout_user, current_user
-from werkzeug.security import generate_password_hash, check_password_hash
-from werkzeug.utils import secure_filename
-from flask import send_from_directory
-from flask_wtf.csrf import CSRFProtect  # <--- BUNU EKLE
-from dotenv import load_dotenv          # <--- BUNU DA EKLE (Şifreler için)
+from flask_wtf.csrf import CSRFProtect
+from dotenv import load_dotenv
 
-load_dotenv() # <--- .env dosyasındaki şifreleri yükler
+load_dotenv()
 
 app = Flask(__name__)
-csrf = CSRFProtect(app) # <--- CSRF KALKANI AKTİF EDİLDİ
-# Sunucuda (VPS) bir SECRET_KEY ortam değişkeni varsa onu alır, yoksa her seferinde eşsiz bir şifre üretir.
-# GÜVENLİK: Oturumların her restartta düşmemesi için sabit ve karmaşık bir anahtar
+csrf = CSRFProtect(app)
+
 app.secret_key = os.environ.get('MAILKAMP_SECRET_KEY', 'MAILKAMP_GIZLI_VE_SABIT_ANAHTAR_2026_!@#$')
 DB_NAME = 'web_mailer_v6.db'
 UPLOAD_FOLDER = 'uploads'
@@ -79,7 +72,6 @@ def init_db():
     conn = sqlite3.connect(DB_NAME)
     cursor = conn.cursor()
 
-    # Standart Tablolar (Eksik sütunlar buraya eklendi)
     cursor.execute('''CREATE TABLE IF NOT EXISTS users (
         id INTEGER PRIMARY KEY AUTOINCREMENT, 
         ad_soyad TEXT, 
@@ -102,7 +94,6 @@ def init_db():
     cursor.execute("CREATE TABLE IF NOT EXISTS contact_group_rel (contact_id INTEGER, group_id INTEGER, UNIQUE(contact_id, group_id))")
     cursor.execute("CREATE TABLE IF NOT EXISTS templates (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id INTEGER, template_name TEXT, subject TEXT, body TEXT)")
 
-    # ÖDEME VE TALEP TABLOLARI
     cursor.execute('''CREATE TABLE IF NOT EXISTS payment_settings (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         active_methods TEXT DEFAULT 'havale',
@@ -114,7 +105,6 @@ def init_db():
         id INTEGER PRIMARY KEY AUTOINCREMENT, user_id INTEGER, talep_tarihi TEXT, odeme_metodu TEXT, durum TEXT DEFAULT 'beklemede', notlar TEXT
     )''')
 
-    # VİTRİN TABLOSU
     cursor.execute('''CREATE TABLE IF NOT EXISTS landing_settings (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         hero_title TEXT, hero_subtitle TEXT,
@@ -136,7 +126,6 @@ def init_db():
              "Spam filtrelerine takılmadan hızlı teslimat.",
              "© 2026 Mailkamp."))
 
-        # SÖZLEŞMELER TABLOSU
         cursor.execute('''CREATE TABLE IF NOT EXISTS legal_texts
                           (
                               id
@@ -146,7 +135,6 @@ def init_db():
                               icerik TEXT
                           )''')
 
-        # Eğer tablo boşsa varsayılan sözleşmeleri ekle
         cursor.execute("SELECT id FROM legal_texts")
         if not cursor.fetchone():
             cursor.execute("INSERT INTO legal_texts (slug, baslik, icerik) VALUES (?, ?, ?)",
@@ -177,7 +165,6 @@ def premium_required(f):
 @app.route('/admin/legal-edit', methods=['GET', 'POST'])
 @login_required
 def admin_legal_edit():
-    # Sadece admin girebilir, admin değilse hata mesajıyla Dashboard'a yolla
     if not current_user.is_admin:
         flash('Bu sayfaya erişim yetkiniz bulunmamaktadır.', 'danger')
         return redirect(url_for('dashboard'))
@@ -187,21 +174,18 @@ def admin_legal_edit():
 
     if request.method == 'POST':
         slug = request.form.get('slug')
-        yeni_baslik = request.form.get('baslik') # Başlığı da değiştirebilmek için
+        yeni_baslik = request.form.get('baslik')
         yeni_icerik = request.form.get('icerik')
 
-        # Hem başlığı hem içeriği güncelleyelim
         cursor.execute("UPDATE legal_texts SET baslik = ?, icerik = ? WHERE slug = ?",
                        (yeni_baslik, yeni_icerik, slug))
         conn.commit()
         flash('Sözleşme başarıyla güncellendi!', 'success')
 
-    # Sözleşmeleri tekrar çekelim
     cursor.execute("SELECT * FROM legal_texts")
     texts = cursor.fetchall()
     conn.close()
     return render_template('admin_legal_edit.html', texts=texts)
-
 
 
 @app.route('/save_template', methods=['POST'])
@@ -280,8 +264,6 @@ def track():
         conn.close()
 
     if target_url:
-        # GÜVENLİK: Sadece geçerli HTTP/HTTPS linklerine yönlendirme yap.
-        # Bu sayede hem dış linklerin çalışır, hem de 'javascript:alert(1)' gibi zararlı kodlar engellenir.
         parsed_url = urllib.parse.urlparse(target_url)
         if parsed_url.scheme in ['http', 'https']:
             return redirect(target_url)
@@ -344,7 +326,9 @@ def import_contacts():
     return redirect(url_for('contacts'))
 
 
+# DİKKAT: API UCU CSRF KORUMASINDAN MUAF TUTULDU!
 @app.route('/api/send', methods=['POST'])
+@csrf.exempt
 def api_send():
     api_key = request.headers.get('X-API-KEY')
     if not api_key: return jsonify({'error': 'X-API-KEY basligi eksik!'}), 401
@@ -414,9 +398,6 @@ def unsubscribe():
     return "Geçersiz link."
 
 
-
-
-# ---------------- BURASI DÜZELTİLDİ ----------------
 @app.route('/upload_logo', methods=['POST'])
 @login_required
 def upload_logo():
@@ -434,7 +415,6 @@ def upload_logo():
         flash('Herhangi bir logo dosyası seçilmedi.', 'danger')
         return redirect(request.referrer)
 
-    # GÜVENLİK: Dosya uzantısı kontrolü (Sadece resimler)
     if not file.filename.lower().endswith(('.png', '.jpg', '.jpeg', '.gif')):
         flash('Güvenlik İhlali: Sadece resim dosyaları (png, jpg, jpeg, gif) yükleyebilirsiniz!', 'danger')
         return redirect(request.referrer)
@@ -444,17 +424,16 @@ def upload_logo():
         file.save(save_path)
         flash('Yeni logo başarıyla yüklendi! (Değişikliği görmek için tarayıcıda CTRL + F5 yapabilirsiniz)', 'success')
         return redirect(request.referrer)
-# ---------------------------------------------------
+
+
 def background_mailer(user_id, email_list, subject, body, attachment_paths, video_link, cover_path, settings, base_url,
                       is_free_plan=False):
     host, port, sender_email, sender_pass = settings[2], settings[3], settings[4], settings[5]
 
-    # OPTİMİZASYON 1: Kara liste ve kişileri döngüye girmeden TEK SEFERDE çekiyoruz.
-    # 'with' kullanımı (Context Manager) bağlantı sızıntısını (Issue #6) tamamen engeller.
     with sqlite3.connect(DB_NAME) as conn:
         cursor = conn.cursor()
         cursor.execute("SELECT email FROM blacklist WHERE user_id=?", (user_id,))
-        blacklist = set(row[0] for row in cursor.fetchall())  # Hızlı arama için Set kullandık
+        blacklist = set(row[0] for row in cursor.fetchall())
 
         cursor.execute("SELECT email, name FROM contacts WHERE user_id=?", (user_id,))
         contacts_dict = {row[0]: row[1] for row in cursor.fetchall()}
@@ -466,7 +445,6 @@ def background_mailer(user_id, email_list, subject, body, attachment_paths, vide
 
         for alici in email_list:
             if alici in blacklist:
-                # OPTİMİZASYON 2: Sadece çok kısa yazma işlemleri için DB açıp hemen kapatıyoruz.
                 with sqlite3.connect(DB_NAME) as conn:
                     tarih = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
                     conn.execute(
@@ -476,7 +454,7 @@ def background_mailer(user_id, email_list, subject, body, attachment_paths, vide
 
             kisisel_body = body
             if not is_free_plan:
-                kisi_adi = contacts_dict.get(alici)  # DB'ye bağlanmak yerine Sözlük'ten (RAM) okuyoruz!
+                kisi_adi = contacts_dict.get(alici)
                 kisisel_body = kisisel_body.replace("{isim}", kisi_adi if kisi_adi else "Değerli Müşterimiz")
             else:
                 kisisel_body = kisisel_body.replace("{isim}", "Değerli Müşterimiz")
@@ -490,7 +468,6 @@ def background_mailer(user_id, email_list, subject, body, attachment_paths, vide
                 log_id = cursor.lastrowid
 
             try:
-                # --- HTML OLUŞTURMA VE MAIL GÖNDERME KISMI (SENİN MEVCUT KODUNLA AYNI) ---
                 video_html = ""
                 if video_link:
                     if is_free_plan:
@@ -509,7 +486,7 @@ def background_mailer(user_id, email_list, subject, body, attachment_paths, vide
 
                 reklam_html = ""
                 if is_free_plan:
-                    reklam_html = f'''<div style="text-align: center; margin-top: 20px; padding-top: 20px; border-top: 1px dashed #e0e0e0;"><p style="font-size: 11px; color: #95a5a6; margin: 0;">Bu e-posta ⚡ <a href="{base_url}" style="color: #2980b9; font-weight: bold; text-decoration: none;"MailKamp</a> platformu ile ücretsiz gönderilmiştir.</p></div>'''
+                    reklam_html = f'''<div style="text-align: center; margin-top: 20px; padding-top: 20px; border-top: 1px dashed #e0e0e0;"><p style="font-size: 11px; color: #95a5a6; margin: 0;">Bu e-posta ⚡ <a href="{base_url}" style="color: #2980b9; font-weight: bold; text-decoration: none;">MailKamp</a> platformu ile ücretsiz gönderilmiştir.</p></div>'''
 
                 kurumsal_html = f'''<!DOCTYPE html><html><body style="margin: 0; padding: 0; background-color: #f4f7f6; font-family: sans-serif;"><table width="100%" border="0" cellspacing="0" cellpadding="0" style="padding: 40px 20px;"><tr><td align="center"><table width="600" border="0" cellspacing="0" cellpadding="0" style="background-color: #ffffff; border-radius: 10px; overflow: hidden; box-shadow: 0 5px 15px rgba(0,0,0,0.05);"><tr><td style="background-color: #1a2b3c; padding: 30px; text-align: center;"><h1 style="color: #ffffff; margin: 0; font-size: 24px;">MailKamp</h1></td></tr><tr><td style="padding: 40px 30px; color: #333333; line-height: 1.8;">{kisisel_body}{video_html}</td></tr><tr><td style="background-color: #ecf0f1; padding: 20px 30px; text-align: center;"><p style="margin: 0; font-size: 13px; color: #7f8c8d; font-weight: bold;">© {datetime.now().year} MailKamp</p><p style="margin: 10px 0 0 0; font-size: 12px; color: #95a5a6;">Abonelikten ayrılmak için <a href="{unsubscribe_link}" style="color: #e74c3c;">tıklayınız</a>.</p>{reklam_html}</td></tr></table></td></tr></table></body></html>'''
 
@@ -537,7 +514,6 @@ def background_mailer(user_id, email_list, subject, body, attachment_paths, vide
                     msg.attach(part)
 
                 server.send_message(msg)
-                # -------------------------------------------------------------------------
 
                 with sqlite3.connect(DB_NAME) as conn:
                     conn.execute("UPDATE logs SET durum=?, detay=? WHERE id=?",
@@ -552,7 +528,6 @@ def background_mailer(user_id, email_list, subject, body, attachment_paths, vide
     except Exception as e:
         print("Sunucu Hatası:", e)
 
-    # OPTİMİZASYON 3: os.path yerine modern pathlib (Issue #8) kullanıldı.
     for path in attachment_paths:
         p = Path(path)
         if p.exists(): p.unlink()
@@ -639,12 +614,9 @@ def contacts():
     conn = sqlite3.connect(DB_NAME)
     cursor = conn.cursor()
 
-    # 1. Kullanıcının gruplarını çek
     cursor.execute("SELECT id, group_name FROM groups WHERE user_id=?", (current_user.id,))
     groups = cursor.fetchall()
 
-    # 2. OPTİMİZASYON: N+1 problemi GROUP_CONCAT ve LEFT JOIN ile tek sorguda çözüldü!
-    # Kişileri ve ait oldukları grupları tek seferde birleştirip alıyoruz.
     query = """
             SELECT c.id, c.name, c.email, IFNULL(GROUP_CONCAT(g.group_name, ', '), '') as groups
             FROM contacts c
@@ -656,7 +628,6 @@ def contacts():
     cursor.execute(query, (current_user.id,))
     raw_contacts = cursor.fetchall()
 
-    # Veriyi HTML'in beklediği sözlük (dictionary) formatına çevir
     contact_list = [{'id': row[0], 'name': row[1], 'email': row[2], 'groups': row[3]} for row in raw_contacts]
 
     conn.close()
@@ -672,12 +643,10 @@ def add_group():
         conn = sqlite3.connect(DB_NAME)
         cursor = conn.cursor()
         try:
-            # Aynı isimde grup yoksa ekle
             cursor.execute("INSERT INTO groups (user_id, group_name) VALUES (?, ?)", (current_user.id, group_name))
             conn.commit()
             flash(f'"{group_name}" adlı grup başarıyla oluşturuldu!', 'success')
         except sqlite3.IntegrityError:
-            # UNIQUE kısıtlaması (aynı isimde grup varsa) devreye girer
             flash('Bu isimde bir grubunuz zaten var!', 'warning')
         finally:
             conn.close()
@@ -692,9 +661,7 @@ def add_group():
 def delete_group(group_id):
     conn = sqlite3.connect(DB_NAME)
     cursor = conn.cursor()
-    # Grubu sil
     cursor.execute("DELETE FROM groups WHERE id=? AND user_id=?", (group_id, current_user.id))
-    # Bu gruba ait kişilerin grup ilişkilerini de temizle (Kişilerin kendisi silinmez, sadece gruptan çıkarlar)
     cursor.execute("DELETE FROM contact_group_rel WHERE group_id=?", (group_id,))
     conn.commit()
     conn.close()
@@ -749,18 +716,15 @@ def send_mail():
         flash('Ayarlar sekmesinden bilgilerinizi kaydedin!', 'danger')
         return redirect(url_for('dashboard'))
 
-    # 1. Formdan gelen verileri al (Yeni HTML tasarımına göre)
     raw_manual_emails = request.form.get('emails', '').replace(",", "\n").split("\n")
     selected_group_id = request.form.get('target_group')
 
     email_list = []
 
-    # 2. Manuel yazılan mailleri listeye ekle
     if raw_manual_emails:
         parsed_manual = [e.strip().lower() for e in raw_manual_emails if "@" in e]
         email_list.extend(parsed_manual)
 
-    # 3. Eğer bir grup seçildiyse, gruptaki mailleri veritabanından çek
     if selected_group_id:
         conn_group = sqlite3.connect(DB_NAME)
         cursor_group = conn_group.cursor()
@@ -776,14 +740,12 @@ def send_mail():
         email_list.extend(group_emails)
         conn_group.close()
 
-    # 4. Aynı mail iki kere yazılmışsa (mükerrer) listeyi temizle
     email_list = list(set(email_list))
 
     if not email_list:
         flash('Lütfen en az bir alıcı grubu seçin veya manuel e-posta girin.', 'danger')
         return redirect(url_for('dashboard'))
 
-    # Aylık limit kontrolü (Free kullanıcılar için)
     if getattr(current_user, 'is_admin', 0) != 1 and getattr(current_user, 'plan_type', 'free') == 'free':
         conn = sqlite3.connect(DB_NAME)
         cursor = conn.cursor()
@@ -804,7 +766,6 @@ def send_mail():
         conn.commit()
         conn.close()
 
-    # SMTP Bağlantı Testi
     try:
         test_server = smtplib.SMTP(settings[2], int(settings[3]), timeout=5)
         test_server.starttls()
@@ -952,22 +913,17 @@ def login():
         if user_data and check_password_hash(user_data[2], password):
             is_admin = user_data[3]
 
-            # --- YENİ KURAL: Yönetici standart kapıdan giremez! ---
             if is_admin == 1:
                 conn.close()
-                # Kötü niyetli kişiye arka kapıyı söylemiyoruz, sadece reddediyoruz.
                 flash('Güvenlik İhlali: Yönetici hesapları bu portaldan oturum açamaz!', 'danger')
-                return redirect(url_for('login'))  # AYNI SAYFADA KALIYOR, İFŞA YOK
-            # -------------------------------------------------------
+                return redirect(url_for('login'))
 
             is_blocked = user_data[5] if len(user_data) > 5 and user_data[5] is not None else 0
 
-            # --- GÜVENLİK AÇIĞI KAPATILDI: Engelli Kullanıcı Kontrolü ---
             if (is_blocked) == 1:
                 conn.close()
                 flash('Hesabınız yönetici tarafından engellenmiştir. Sisteme giriş yapamazsınız.', 'danger')
                 return redirect(url_for('login'))
-            # ------------------------------------------------------------
 
             plan_type = user_data[6] if len(user_data) > 6 and user_data[6] is not None else 'free'
             login_user(User(id=user_data[0], ad_soyad=user_data[1], is_admin=is_admin, email=user_data[4],
@@ -1209,7 +1165,6 @@ def admin_users():
     conn = sqlite3.connect(DB_NAME)
     cursor = conn.cursor()
 
-    # OPTİMİZASYON: N+1 Problemi LEFT JOIN ve GROUP BY ile tek sorguda çözüldü!
     query = """
             SELECT u.id, u.ad_soyad, u.is_admin, u.email, u.is_blocked, u.plan_type, COUNT(l.id) as total_mails
             FROM users u
@@ -1297,7 +1252,6 @@ def upgrade():
     if request.method == 'POST':
         tarih = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
-        # Formdan gelen sözleşme onayını yakala
         contract_accepted = request.form.get('contract_accepted')
 
         if contract_accepted:
@@ -1308,7 +1262,6 @@ def upgrade():
                 WHERE id = ?
             """, (tarih, current_user.id))
 
-        # Yükseltme talebini tabloya yaz
         cursor.execute("INSERT INTO upgrade_requests (user_id, talep_tarihi, odeme_metodu) VALUES (?, ?, ?)",
                        (current_user.id, tarih, 'Havale/EFT'))
 
@@ -1319,16 +1272,13 @@ def upgrade():
               'success')
         return redirect(url_for('dashboard'))
 
-    # BURASI KRİTİK: Sayfa ilk açıldığında sözleşmeleri veritabanından çekiyoruz
     cursor.execute("SELECT slug, icerik FROM legal_texts")
     legal_data = {row[0]: row[1] for row in cursor.fetchall()}
 
-    # Mevcut ödeme ayarlarını çekiyoruz
     cursor.execute("SELECT * FROM payment_settings WHERE id=1")
     p_settings = cursor.fetchone()
     conn.close()
 
-    # VE EKSİK OLAN KISIM: legal=legal_data diyerek HTML'e gönderiyoruz!
     return render_template('upgrade.html', settings=p_settings, legal=legal_data)
 
 
@@ -1367,7 +1317,8 @@ def payment_management():
     return render_template('admin_payments.html', talepler=talepler, settings=settings)
 
 
-@app.route('/admin/approve_upgrade/<int:req_id>',methods=['POST'])
+# DİKKAT: GET METODU EKLENDİ, HTML'DEKİ LİNKLERİN ÇALIŞMASI İÇİN
+@app.route('/admin/approve_upgrade/<int:req_id>', methods=['GET', 'POST'])
 @login_required
 def approve_upgrade(req_id):
     if current_user.is_admin != 1: return redirect(url_for('dashboard'))
@@ -1384,7 +1335,8 @@ def approve_upgrade(req_id):
     conn.close()
     return redirect(url_for('payment_management'))
 
-@app.route('/admin/reject_upgrade/<int:req_id>',methods=['POST'])
+# DİKKAT: GET METODU EKLENDİ, HTML'DEKİ LİNKLERİN ÇALIŞMASI İÇİN
+@app.route('/admin/reject_upgrade/<int:req_id>', methods=['GET', 'POST'])
 @login_required
 def reject_upgrade(req_id):
     if current_user.is_admin != 1: return redirect(url_for('dashboard'))

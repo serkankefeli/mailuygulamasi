@@ -35,6 +35,9 @@
                     {% endwith %}
 
                     <form method="POST" action="/verify">
+
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+
                         <div class="mb-4">
                             <input type="text" name="code" class="form-control code-input form-control-lg" maxlength="6" placeholder="000000" autocomplete="off" required autofocus>
                         </div>

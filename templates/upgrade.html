@@ -36,6 +36,9 @@
                     <hr class="my-4">
 
                     <form action="{{ url_for('upgrade') }}" method="POST" class="p-4 border rounded shadow-sm bg-white">
+
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+
                         <h5 class="mb-3 text-primary"><i class="fa-solid fa-receipt me-2"></i>Ödeme Bildirimi</h5>
 
                         <div class="mb-3">
@@ -63,9 +66,6 @@
 </div>
 
 <div class="modal fade" id="sozlesmeModal" tabindex="-1" aria-hidden="true">
-    <div class="modal-body text-muted">
-    {{ legal['mesafeli_satis'] | safe }}
-</div>
   <div class="modal-dialog modal-dialog-scrollable modal-lg">
     <div class="modal-content">
       <div class="modal-header bg-light">
@@ -73,6 +73,11 @@
         <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Kapat"></button>
       </div>
       <div class="modal-body text-muted" style="font-size: 0.9rem;">
+
+        <div class="mb-4">
+            {{ legal['mesafeli_satis'] | safe }}
+        </div>
+
         <h6>1. TARAFLAR</h6>
         <p>İşbu sözleşme, hizmeti sağlayan <strong>EST Yazılım ve Bilişim Teknolojileri Limited Şirketi</strong> (Bundan böyle "Hizmet Sağlayıcı" olarak anılacaktır) ile MailKamp sistemini kullanan Müşteri arasında elektronik ortamda onaylanmıştır.</p>
         <h6>2. KONU</h6>

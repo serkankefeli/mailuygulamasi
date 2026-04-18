@@ -63,6 +63,8 @@
                 <div class="card-body p-4 bg-light bg-opacity-50">
                     <form action="{{ url_for('send_mail') }}" method="POST" enctype="multipart/form-data">
 
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+
                         <div class="row mb-4 bg-white p-3 rounded shadow-sm border border-light mx-0">
                             <div class="col-md-6 border-end">
                                 <label class="form-label fw-bold text-dark"><i class="fas fa-users text-primary me-2"></i>Alıcı Grubu Seçin</label>
@@ -168,6 +170,9 @@
     <div class="modal-dialog">
         <div class="modal-content border-0 shadow">
             <form action="{{ url_for('save_template') }}" method="POST">
+
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+
                 <div class="modal-header bg-light">
                     <h5 class="modal-title fw-bold">Şablon Olarak Kaydet</h5>
                     <button type="button" class="btn-close" data-bs-dismiss="modal"></button>

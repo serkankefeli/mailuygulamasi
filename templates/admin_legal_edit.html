@@ -20,6 +20,9 @@
                 {% for text in texts %}
                 <div class="tab-pane fade {% if loop.first %}show active{% endif %}" id="tab-{{ text[1] }}">
                     <form action="{{ url_for('admin_legal_edit') }}" method="POST">
+
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+
                         <input type="hidden" name="slug" value="{{ text[1] }}">
 
                         <div class="mb-3">

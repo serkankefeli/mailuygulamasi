@@ -10,6 +10,9 @@
             </div>
             <div class="card-body">
                 <form action="/add_group" method="POST" class="mb-4">
+
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+
                     <div class="input-group">
                         <input type="text" name="group_name" class="form-control" placeholder="Örn: VIP Müşteriler" required>
                         <button class="btn btn-dark" type="submit"><i class="fa-solid fa-plus me-1"></i> Ekle</button>
@@ -23,6 +26,9 @@
                         <li class="list-group-item d-flex justify-content-between align-items-center px-2 py-2">
                             <span class="text-dark fw-medium"><i class="fa-solid fa-folder text-secondary me-2"></i>{{ group.1 }}</span>
                             <form action="/delete_group/{{ group.0 }}" method="POST" class="m-0" onsubmit="return confirm('{{ group.1 }} grubunu silmek istediğinize emin misiniz?\n\n(DİKKAT: İçindeki kişiler silinmez, sadece bu gruptan çıkarılırlar.)');">
+
+                                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+
                                 <button type="submit" class="btn btn-sm btn-outline-danger border-0" title="Grubu Sil">
                                     <i class="fa-solid fa-trash"></i>
                                 </button>
@@ -42,6 +48,9 @@
             <div class="card-body bg-light rounded">
                 <h6 class="text-info fw-bold mb-3"><i class="fa-solid fa-file-excel me-2"></i>Excel ile Toplu Yükleme</h6>
                 <form action="/import_contacts" method="POST" enctype="multipart/form-data">
+
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+
                     <div class="mb-3">
                         <input class="form-control form-control-sm" type="file" name="excel_file" accept=".xlsx, .xls" required>
                     </div>
