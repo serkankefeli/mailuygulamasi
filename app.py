@@ -952,8 +952,8 @@ def remove_blacklist(id):
 def send_mail():
     conn = sqlite3.connect(DB_NAME)
     cursor = conn.cursor()
-    cursor.execute("SELECT email FROM blacklist WHERE user_id = ?", (current_user.id,))
-    blacklisted_emails = [row[0].strip().lower() for row in cursor.fetchall()]
+    cursor.execute("SELECT * FROM settings WHERE user_id=?", (current_user.id,))
+    settings = cursor.fetchone()
     conn.close()
 
     if not settings or not settings[4]:
@@ -965,7 +965,6 @@ def send_mail():
 
     email_list = []
 
-    # 1. Manuel ve Grup maillerini topluyoruz
     if raw_manual_emails:
         parsed_manual = [e.strip().lower() for e in raw_manual_emails if "@" in e]
         email_list.extend(parsed_manual)
@@ -974,9 +973,11 @@ def send_mail():
         conn_group = sqlite3.connect(DB_NAME)
         cursor_group = conn_group.cursor()
         cursor_group.execute('''
-                             SELECT c.email FROM contacts c
-                             JOIN contact_group_rel cgr ON c.id = cgr.contact_id
-                             WHERE cgr.group_id = ? AND c.user_id = ?
+                             SELECT c.email
+                             FROM contacts c
+                                      JOIN contact_group_rel cgr ON c.id = cgr.contact_id
+                             WHERE cgr.group_id = ?
+                               AND c.user_id = ?
                              ''', (selected_group_id, current_user.id))
         group_emails = [row[0] for row in cursor_group.fetchall()]
         email_list.extend(group_emails)
@@ -985,23 +986,86 @@ def send_mail():
     # Mükerrer kayıtları temizle
     email_list = list(set(email_list))
 
-    # --- 🛡️ KARA LİSTE FİLTRESİ BAŞLANGIÇ ---
-    conn = sqlite3.connect(DB_NAME)
-    cursor = conn.cursor()
-    cursor.execute("SELECT email FROM blacklist WHERE user_id = ?", (current_user.id,))
-    blacklisted_emails = [row[0].strip().lower() for row in cursor.fetchall()]
-    conn.close()
+    # --- 🛡️ KARA LİSTE FİLTRESİ (BURASI ÇOK ÖNEMLİ) ---
+    conn_bl = sqlite3.connect(DB_NAME)
+    cursor_bl = conn_bl.cursor()
+    cursor_bl.execute("SELECT email FROM blacklist WHERE user_id = ?", (current_user.id,))
+    blacklisted_emails = [row[0].strip().lower() for row in cursor_bl.fetchall()]
+    conn_bl.close()
 
-    # Kara listede olmayanları ayıkla
+    # Filtreleme yapıyoruz
     email_list = [email for email in email_list if email not in blacklisted_emails]
-    # --- 🛡️ KARA LİSTE FİLTRESİ BİTİŞ ---
 
-    # BURASI KRİTİK: Eğer listede kimse kalmadıysa fonksiyonu burada bitirip geri dönmeliyiz
+    # Eğer listede kimse kalmadıysa hata vermemesi için hemen geri dönüyoruz
     if not email_list:
         flash('Gönderilecek geçerli e-posta kalmadı (Alıcılar kara listede olabilir).', 'warning')
-        return redirect(url_for('dashboard'))  # <--- Eksik olan return buydu!
+        return redirect(url_for('dashboard'))
+    # ------------------------------------------------
 
-    # ... (Geri kalan limit kontrolleri ve gönderme işlemleri aynı kalıyor) ...
+    # Plan ve Limit Kontrolü
+    if getattr(current_user, 'is_admin', 0) != 1 and getattr(current_user, 'plan_type', 'free') == 'free':
+        conn = sqlite3.connect(DB_NAME)
+        cursor = conn.cursor()
+        cursor.execute("SELECT sent_this_month FROM users WHERE id=?", (current_user.id,))
+        sent_count = cursor.fetchone()[0] or 0
+        conn.close()
+
+        if sent_count + len(email_list) > 3000:
+            flash(f'Limit aşımı! (Kalan: {max(0, 3000 - sent_count)}).', 'danger')
+            return redirect(url_for('dashboard'))
+
+        conn = sqlite3.connect(DB_NAME)
+        cursor = conn.cursor()
+        cursor.execute("UPDATE users SET sent_this_month = sent_this_month + ? WHERE id=?",
+                       (len(email_list), current_user.id))
+        conn.commit()
+        conn.close()
+
+    # SMTP Testi
+    try:
+        test_server = smtplib.SMTP(settings[2], int(settings[3]), timeout=5)
+        test_server.starttls()
+        test_server.login(settings[4], settings[5])
+        test_server.quit()
+    except Exception:
+        flash('SMTP bağlantı hatası! Bilgileri kontrol edin.', 'danger')
+        return redirect(url_for('dashboard'))
+
+    # Form Verilerini Al
+    subject = request.form['subject']
+    body = request.form['body']
+    video_link = request.form.get('video_link', '').strip()
+
+    # Dosya İşlemleri
+    cover_path = None
+    cover_file = request.files.get('video_cover')
+    if cover_file and cover_file.filename:
+        filename = secure_filename(cover_file.filename)
+        filepath = os.path.join(app.config['UPLOAD_FOLDER'], filename)
+        cover_file.save(filepath)
+        cover_path = filepath
+
+    attachment_paths = []
+    files = request.files.getlist('attachment')
+    for file in files:
+        if file.filename:
+            filename = secure_filename(file.filename)
+            filepath = os.path.join(app.config['UPLOAD_FOLDER'], filename)
+            file.save(filepath)
+            attachment_paths.append(filepath)
+
+    base_url = request.host_url
+    is_free_plan = (getattr(current_user, 'is_admin', 0) != 1 and getattr(current_user, 'plan_type', 'free') == 'free')
+
+    # Arka planda mail gönderimini başlat
+    thread = threading.Thread(target=background_mailer,
+                              args=(current_user.id, email_list, subject, body, attachment_paths, video_link,
+                                    cover_path, settings, base_url, is_free_plan))
+    thread.daemon = True
+    thread.start()
+
+    flash('Kampanya başarıyla başlatıldı.', 'success')
+    return redirect(url_for('dashboard'))
 
 @app.route('/')
 def index():
