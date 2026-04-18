@@ -722,6 +722,43 @@ def save_settings():
     return redirect(url_for('settings_page'))
 
 
+@app.route('/add_blacklist', methods=['POST'])
+@login_required
+def add_blacklist():
+    email = request.form.get('blacklist_emails')
+    if email:
+        email = email.strip().lower()
+        if "@" in email:
+            conn = sqlite3.connect(DB_NAME)
+            cursor = conn.cursor()
+            try:
+                # Kullanıcı aynı maili 2 kere eklemesin diye UNIQUE constraint koruyacak
+                cursor.execute("INSERT INTO blacklist (user_id, email) VALUES (?, ?)", (current_user.id, email))
+                conn.commit()
+                flash(f'{email} başarıyla kara listeye eklendi.', 'success')
+            except sqlite3.IntegrityError:
+                flash('Bu e-posta zaten kara listenizde bulunuyor.', 'warning')
+            finally:
+                conn.close()
+        else:
+            flash('Lütfen geçerli bir e-posta adresi girin.', 'danger')
+
+    return redirect(url_for('settings_page'))
+
+
+@app.route('/remove_blacklist/<int:id>', methods=['POST'])
+@login_required
+def remove_blacklist(id):
+    conn = sqlite3.connect(DB_NAME)
+    cursor = conn.cursor()
+    # Güvenlik: Sadece kendi listesindeki ID'yi silebilir
+    cursor.execute("DELETE FROM blacklist WHERE id=? AND user_id=?", (id, current_user.id))
+    conn.commit()
+    conn.close()
+    flash('E-posta kara listeden başarıyla çıkarıldı.', 'success')
+    return redirect(url_for('settings_page'))
+
+
 @app.route('/send_mail', methods=['POST'])
 @login_required
 def send_mail():
