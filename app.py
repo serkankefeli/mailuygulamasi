@@ -1059,38 +1059,25 @@ def send_mail():
             file.save(filepath)
             attachment_paths.append(filepath)
 
-        # --- ZAMANLAMA HESAPLAMASI (GÜNCELLENMİŞ LOGLU VERSİYON) ---
-        import sys
-        send_time_str = request.form.get('send_time')
-        delay = 0
+            # --- ZAMANLAMA HESAPLAMASI (SAAT DİLİMİ ÇÖZÜMLÜ) ---
+            send_time_str = request.form.get('send_time')
+            delay = 0
 
-        print(f"\n[SİSTEM] Formdan gelen zaman verisi: {send_time_str}", flush=True)
+            if send_time_str:
+                try:
+                    from datetime import datetime, timedelta
+                    if len(send_time_str) == 16:
+                        send_time = datetime.strptime(send_time_str, '%Y-%m-%dT%H:%M')
+                    else:
+                        send_time = datetime.strptime(send_time_str, '%Y-%m-%dT%H:%M:%S')
 
-        if send_time_str:
-            try:
-                from datetime import datetime
-                # HTML'den gelen formatı Python'a çeviriyoruz
-                if len(send_time_str) == 16:
-                    send_time = datetime.strptime(send_time_str, '%Y-%m-%dT%H:%M')
-                else:
-                    send_time = datetime.strptime(send_time_str, '%Y-%m-%dT%H:%M:%S')
+                    # KRİTİK NOKTA: Sunucu saatine 3 saat ekleyip Türkiye saatine (TSİ) çeviriyoruz!
+                    now = datetime.now() + timedelta(hours=3)
 
-                now = datetime.now()
-                print(f"[SİSTEM] Sunucu Saati: {now} | Senin Seçtiğin Saat: {send_time}", flush=True)
-
-                if send_time > now:
-                    delay = (send_time - now).total_seconds()
-                    print(f"[SİSTEM] BAŞARILI! Mail {delay} saniye (yaklaşık {delay / 3600:.1f} saat) bekletilecek.",
-                          flush=True)
-                else:
-                    print(f"[SİSTEM] UYARI: Seçilen zaman geçmişte! Mail bekletilmeden ANINDA gönderilecek.",
-                          flush=True)
-            except Exception as e:
-                print(f"[SİSTEM] Zamanlama Hatası: {e}", flush=True)
-
-        base_url = request.host_url
-        is_free_plan = (getattr(current_user, 'is_admin', 0) != 1 and getattr(current_user, 'plan_type', 'free') == 'free')
-
+                    if send_time > now:
+                        delay = (send_time - now).total_seconds()
+                except Exception as e:
+                    print(f"Zamanlama Hatası: {e}")
 
     # --- GÖNDERİMİ BAŞLAT (ANINDA VEYA ZAMANLI) ---
     if delay > 0:
