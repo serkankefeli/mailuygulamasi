@@ -204,16 +204,64 @@
     </div>
 </div>
 
-{% include 'modals/save_template.html' %}
+<div class="modal fade" id="saveTemplateModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content border-0 shadow">
+            <form action="{{ url_for('save_template') }}" method="POST">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+                <div class="modal-header bg-light">
+                    <h5 class="modal-title fw-bold">Şablon Olarak Kaydet</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label fw-bold">Şablon Adı</label>
+                        <input type="text" name="template_name" class="form-control" required placeholder="Örn: Hoşgeldin Maili">
+                    </div>
+                    <div class="alert alert-info border-0 py-2 small mb-0">
+                        <i class="fas fa-info-circle me-1"></i> Şu an ekranda yazılı olan Konu ve Mesaj içeriği bu isimle kaydedilecektir.
+                    </div>
+                </div>
+                <div class="modal-footer border-top-0">
+                    <button type="button" class="btn btn-light" data-bs-dismiss="modal">İptal</button>
+                    <button type="submit" class="btn btn-primary fw-bold" onclick="copyFormData()">Kaydet</button>
+                </div>
+                <input type="hidden" name="subject" id="modalSubject">
+                <input type="hidden" name="body" id="modalBody">
+            </form>
+        </div>
+    </div>
+</div>
 
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script>
+    // Şablon Kaydederken Konu ve Gövdeyi Modalın içine kopyalar
+    function copyFormData() {
+        document.getElementById('modalSubject').value = document.getElementById('mailSubject').value;
+        document.getElementById('modalBody').value = document.getElementById('mailBody').value;
+    }
+
+    // Ajax ile Seçilen Şablonu Yükleme
+    function loadTemplate(id) {
+        if(!id) {
+            document.getElementById('mailSubject').value = '';
+            document.getElementById('mailBody').value = '';
+            return;
+        }
+        fetch('/api/get_template/' + id)
+        .then(res => res.json())
+        .then(data => {
+            if(data.subject) document.getElementById('mailSubject').value = data.subject;
+            if(data.body) document.getElementById('mailBody').value = data.body;
+        });
+    }
+
     document.addEventListener('DOMContentLoaded', function() {
-        // Hoş Geldin Modalı Gösterimi (İlk girişe özel mantık eklenebilir)
+        // Hoş Geldin Modalı Gösterimi
         var myModal = new bootstrap.Modal(document.getElementById('welcomeModal'));
         myModal.show();
 
-        // Grafik Çizimi (Chart.js)
+        // Trend Grafiği Çizimi (Chart.js)
         const ctx = document.getElementById('trendChart').getContext('2d');
         new Chart(ctx, {
             type: 'line',
@@ -241,15 +289,5 @@
             }
         });
     });
-
-    function loadTemplate(id) {
-        if(!id) return;
-        fetch('/api/get_template/' + id)
-        .then(res => res.json())
-        .then(data => {
-            if(data.subject) document.getElementById('mailSubject').value = data.subject;
-            if(data.body) document.getElementById('mailBody').value = data.body;
-        });
-    }
 </script>
 {% endblock %}
