@@ -952,8 +952,8 @@ def remove_blacklist(id):
 def send_mail():
     conn = sqlite3.connect(DB_NAME)
     cursor = conn.cursor()
-    cursor.execute("SELECT * FROM settings WHERE user_id=?", (current_user.id,))
-    settings = cursor.fetchone()
+    cursor.execute("SELECT email FROM blacklist WHERE user_id = ?", (current_user.id,))
+    blacklisted_emails = [row[0].strip().lower() for row in cursor.fetchall()]
     conn.close()
 
     if not settings or not settings[4]:
@@ -996,9 +996,10 @@ def send_mail():
     email_list = [email for email in email_list if email not in blacklisted_emails]
     # --- 🛡️ KARA LİSTE FİLTRESİ BİTİŞ ---
 
+    # BURASI KRİTİK: Eğer listede kimse kalmadıysa fonksiyonu burada bitirip geri dönmeliyiz
     if not email_list:
-        flash('Lütfen geçerli alıcılar girin (Kara listedekiler temizlenmiş olabilir).', 'warning')
-        return redirect(url_for('dashboard'))
+        flash('Gönderilecek geçerli e-posta kalmadı (Alıcılar kara listede olabilir).', 'warning')
+        return redirect(url_for('dashboard'))  # <--- Eksik olan return buydu!
 
     # ... (Geri kalan limit kontrolleri ve gönderme işlemleri aynı kalıyor) ...
 
