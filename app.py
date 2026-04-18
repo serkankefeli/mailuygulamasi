@@ -116,6 +116,7 @@ def init_db():
                           contract_accepted_date
                           TEXT
                       )''')
+
     cursor.execute('''CREATE TABLE IF NOT EXISTS logs
                       (
                           id
@@ -275,6 +276,7 @@ def init_db():
                           TEXT
                       )''')
 
+    # 1. Landing Settings Kontrolü
     cursor.execute("SELECT id FROM landing_settings")
     if not cursor.fetchone():
         cursor.execute(
@@ -283,47 +285,47 @@ def init_db():
              "Mailkamp güvencesiyle e-posta kampanyalarınızı saniyeler içinde tasarlayın, gönderin ve sonuçları analiz edin.",
              "Detaylı Analitik", "Hangi müşterinizin maili açtığını, raporlayın.", "Akıllı Şablonlar",
              "En iyi tasarımlarınızı şablon olarak kaydedin.", "Güvenli Altyapı",
-             "Spam filtrelerine takılmadan hızlı teslimat.",
-             "© 2026 Mailkamp."))
+             "Spam filtrelerine takılmadan hızlı teslimat.", "© 2026 Mailkamp.")
+        )
 
-        cursor.execute('''CREATE TABLE IF NOT EXISTS legal_texts
-                          (
-                              id
-                              INTEGER
-                              PRIMARY
-                              KEY
-                              AUTOINCREMENT,
-                              slug
-                              TEXT
-                              UNIQUE,
-                              baslik
-                              TEXT,
-                              icerik
-                              TEXT
-                          )''')
+    # 2. Sözleşmeler Kontrolü (Yukarıdaki if bloğundan bağımsız hale getirildi!)
+    cursor.execute('''CREATE TABLE IF NOT EXISTS legal_texts
+                      (
+                          id
+                          INTEGER
+                          PRIMARY
+                          KEY
+                          AUTOINCREMENT,
+                          slug
+                          TEXT
+                          UNIQUE,
+                          baslik
+                          TEXT,
+                          icerik
+                          TEXT
+                      )''')
+    cursor.execute("SELECT id FROM legal_texts")
+    if not cursor.fetchone():
+        cursor.execute("INSERT INTO legal_texts (slug, baslik, icerik) VALUES (?, ?, ?)",
+                       ('satis-sozlesmesi', 'Mesafeli Satış Sözleşmesi', 'Sözleşme içeriği buraya eklenecektir.'))
+        cursor.execute("INSERT INTO legal_texts (slug, baslik, icerik) VALUES (?, ?, ?)",
+                       ('kullanim-kosullari', 'Kullanım Koşulları', 'Kullanım koşulları buraya eklenecektir.'))
 
-        cursor.execute("SELECT id FROM legal_texts")
-        if not cursor.fetchone():
-            cursor.execute("INSERT INTO legal_texts (slug, baslik, icerik) VALUES (?, ?, ?)",
-                           ('satis-sozlesmesi', 'Mesafeli Satış Sözleşmesi', 'Sözleşme içeriği buraya eklenecektir.'))
-            cursor.execute("INSERT INTO legal_texts (slug, baslik, icerik) VALUES (?, ?, ?)",
-                           ('kullanim-kosullari', 'Kullanım Koşulları', 'Kullanım koşulları buraya eklenecektir.'))
-
+    # 3. Ödeme Ayarları Kontrolü
     cursor.execute("SELECT id FROM payment_settings")
     if not cursor.fetchone():
         cursor.execute("INSERT INTO payment_settings (iban_no, banka_adi, hesap_sahibi) VALUES (?, ?, ?)",
                        ("TR00 0000 0000 0000 0000 0000 00", "Mailkamp Bank", "Serkan Kefeli"))
 
-    # --- AKILLI VE GÜVENLİ ADMİN KONTROLÜ (YENİ EKLENEN KISIM BURASI) ---
+    # --- 4. AKILLI VE GÜVENLİ ADMİN KONTROLÜ ---
     cursor.execute("SELECT id FROM users WHERE email = ?", ("kefelisekran@gmail.com",))
     if not cursor.fetchone():
         from werkzeug.security import generate_password_hash
         import secrets
+        import os
 
-        # ŞİFREYİ KODDAN DEĞİL, GİZLİ .ENV DOSYASINDAN ÇEKİYORUZ!
         ilk_sifre = os.environ.get('ADMIN_INITIAL_PASSWORD')
 
-        # Eğer .env dosyasında şifre yoksa, güvenlik için rastgele karmaşık bir şifre üret
         if not ilk_sifre:
             ilk_sifre = secrets.token_hex(8)
             print(f"DİKKAT: .env dosyasında şifre bulunamadı. Rastgele şifre üretildi: {ilk_sifre}")
@@ -340,10 +342,12 @@ def init_db():
 
     # Gereksiz hayalet kullanıcıyı temizle
     cursor.execute("DELETE FROM users WHERE email = 'admin@sistem.com'")
-    # -------------------------------------------------------------------
 
     conn.commit()
     conn.close()
+
+
+# --- PREMIUM REQUIRED FONKSİYONU INIT_DB'NİN DIŞINDA OLMALI ---
 def premium_required(f):
     @wraps(f)
     def decorated_function(*args, **kwargs):
@@ -351,6 +355,7 @@ def premium_required(f):
             flash('🌟 Bu özellik PRO pakete özeldir! Lütfen planınızı yükseltin.', 'warning')
             return redirect(url_for('upgrade'))
         return f(*args, **kwargs)
+
     return decorated_function
 
 # BUNDAN SONRA SAYFALAR BAŞLAMALI
