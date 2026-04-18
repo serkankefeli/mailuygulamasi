@@ -344,16 +344,19 @@ def init_db():
 
     conn.commit()
     conn.close()
+def premium_required(f):
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        if current_user.is_admin != 1 and getattr(current_user, 'plan_type', 'free') == 'free':
+            flash('🌟 Bu özellik PRO pakete özeldir! Lütfen planınızı yükseltin.', 'warning')
+            return redirect(url_for('upgrade'))
+        return f(*args, **kwargs)
+    return decorated_function
 
-    def premium_required(f):
-        @wraps(f)
-        def decorated_function(*args, **kwargs):
-            if current_user.is_admin != 1 and getattr(current_user, 'plan_type', 'free') == 'free':
-                flash('🌟 Bu özellik PRO pakete özeldir! Lütfen planınızı yükseltin.', 'warning')
-                return redirect(url_for('upgrade'))
-            return f(*args, **kwargs)
-
-        return decorated_function
+# BUNDAN SONRA SAYFALAR BAŞLAMALI
+@app.route('/admin/legal-edit', methods=['GET', 'POST'])
+@login_required
+def admin_legal_edit():
 
 
 @app.route('/admin/legal-edit', methods=['GET', 'POST'])
