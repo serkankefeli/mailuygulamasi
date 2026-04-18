@@ -358,12 +358,6 @@ def premium_required(f):
 
     return decorated_function
 
-# BUNDAN SONRA SAYFALAR BAŞLAMALI
-@app.route('/admin/legal-edit', methods=['GET', 'POST'])
-@login_required
-def admin_legal_edit():
-
-
 @app.route('/admin/legal-edit', methods=['GET', 'POST'])
 @login_required
 def admin_legal_edit():
