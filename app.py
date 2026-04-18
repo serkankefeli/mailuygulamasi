@@ -72,6 +72,7 @@ def init_db():
     conn = sqlite3.connect(DB_NAME)
     cursor = conn.cursor()
 
+    # 1. Tabloları Oluştur
     cursor.execute('''CREATE TABLE IF NOT EXISTS users (
         id INTEGER PRIMARY KEY AUTOINCREMENT, 
         ad_soyad TEXT, 
@@ -115,6 +116,7 @@ def init_db():
         hero_image TEXT, promo_video TEXT
     )''')
 
+    # 2. Varsayılan Ayarları Ekle
     cursor.execute("SELECT id FROM landing_settings")
     if not cursor.fetchone():
         cursor.execute(
@@ -126,26 +128,21 @@ def init_db():
              "Spam filtrelerine takılmadan hızlı teslimat.",
              "© 2026 Mailkamp."))
 
-        cursor.execute('''CREATE TABLE IF NOT EXISTS legal_texts
-                          (
-                              id
-                              INTEGER PRIMARY KEY AUTOINCREMENT,
-                              slug TEXT UNIQUE,
-                              baslik TEXT,
-                              icerik TEXT
-                          )''')
-
-        cursor.execute("SELECT id FROM legal_texts")
-        if not cursor.fetchone():
-            cursor.execute("INSERT INTO legal_texts (slug, baslik, icerik) VALUES (?, ?, ?)",
-                           ('satis-sozlesmesi', 'Mesafeli Satış Sözleşmesi', 'Sözleşme içeriği buraya eklenecektir.'))
-            cursor.execute("INSERT INTO legal_texts (slug, baslik, icerik) VALUES (?, ?, ?)",
-                           ('kullanim-kosullari', 'Kullanım Koşulları', 'Kullanım koşulları buraya eklenecektir.'))
+    cursor.execute('''CREATE TABLE IF NOT EXISTS legal_texts (id INTEGER PRIMARY KEY AUTOINCREMENT, slug TEXT UNIQUE, baslik TEXT, icerik TEXT)''')
+    cursor.execute("SELECT id FROM legal_texts")
+    if not cursor.fetchone():
+        cursor.execute("INSERT INTO legal_texts (slug, baslik, icerik) VALUES (?, ?, ?)", ('satis-sozlesmesi', 'Mesafeli Satış Sözleşmesi', 'Sözleşme içeriği buraya eklenecektir.'))
+        cursor.execute("INSERT INTO legal_texts (slug, baslik, icerik) VALUES (?, ?, ?)", ('kullanim-kosullari', 'Kullanım Koşulları', 'Kullanım koşulları buraya eklenecektir.'))
 
     cursor.execute("SELECT id FROM payment_settings")
     if not cursor.fetchone():
         cursor.execute("INSERT INTO payment_settings (iban_no, banka_adi, hesap_sahibi) VALUES (?, ?, ?)",
                        ("TR00 0000 0000 0000 0000 0000 00", "Mailkamp Bank", "Serkan Kefeli"))
+
+    # --- KRİTİK TEMİZLİK: HAYALET ADMİNİ KOVUYORUZ ---
+    # Eğer sistem bir yerlerden bu kullanıcıyı ekliyorsa, burada kökten temizliyoruz.
+    cursor.execute("DELETE FROM users WHERE email = 'admin@sistem.com'")
+    # -------------------------------------------------
 
     conn.commit()
     conn.close()
