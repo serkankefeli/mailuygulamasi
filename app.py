@@ -627,7 +627,7 @@ def background_mailer(user_id, email_list, subject, body, attachment_paths, vide
     # Ayarları parçalıyoruz
     host, port, sender_email = settings[2], settings[3], settings[4]
 
-    # --- GÜVENLİK GÜNCELLEMESİ (Sorun 2 Çözümü) ---
+    # --- GÜVENLİK GÜNCELLEMESİ ---
     if user_id == 1:
         # Eğer gönderen admin ise şifreyi .env dosyasından çek
         sender_pass = os.environ.get('ADMIN_SMTP_PASSWORD')
@@ -670,6 +670,7 @@ def background_mailer(user_id, email_list, subject, body, attachment_paths, vide
                 cursor = conn.cursor()
                 cursor.execute("INSERT INTO logs (user_id, tarih, alici, konu, durum, detay) VALUES (?, ?, ?, ?, ?, ?)",
                                (user_id, tarih, alici, subject, "Gönderiliyor...", "Kuyrukta"))
+                # GÖNDERİM ID'SİNİ ALIYORUZ (Bunu okundu takibinde kullanacağız)
                 log_id = cursor.lastrowid
 
             try:
@@ -693,7 +694,13 @@ def background_mailer(user_id, email_list, subject, body, attachment_paths, vide
                 if is_free_plan:
                     reklam_html = f'''<div style="text-align: center; margin-top: 20px; padding-top: 20px; border-top: 1px dashed #e0e0e0;"><p style="font-size: 11px; color: #95a5a6; margin: 0;">Bu e-posta ⚡ <a href="{base_url}" style="color: #2980b9; font-weight: bold; text-decoration: none;">MailKamp</a> platformu ile ücretsiz gönderilmiştir.</p></div>'''
 
-                kurumsal_html = f'''<!DOCTYPE html><html><body style="margin: 0; padding: 0; background-color: #f4f7f6; font-family: sans-serif;"><table width="100%" border="0" cellspacing="0" cellpadding="0" style="padding: 40px 20px;"><tr><td align="center"><table width="600" border="0" cellspacing="0" cellpadding="0" style="background-color: #ffffff; border-radius: 10px; overflow: hidden; box-shadow: 0 5px 15px rgba(0,0,0,0.05);"><tr><td style="background-color: #1a2b3c; padding: 30px; text-align: center;"><h1 style="color: #ffffff; margin: 0; font-size: 24px;">MailKamp</h1></td></tr><tr><td style="padding: 40px 30px; color: #333333; line-height: 1.8;">{kisisel_body}{video_html}</td></tr><tr><td style="background-color: #ecf0f1; padding: 20px 30px; text-align: center;"><p style="margin: 0; font-size: 13px; color: #7f8c8d; font-weight: bold;">© {datetime.now().year} MailKamp</p><p style="margin: 10px 0 0 0; font-size: 12px; color: #95a5a6;">Abonelikten ayrılmak için <a href="{unsubscribe_link}" style="color: #e74c3c;">tıklayınız</a>.</p>{reklam_html}</td></tr></table></td></tr></table></body></html>'''
+                # --- 🎯 GÖRÜNMEZ PİKSEL KODU (OKUNDU TAKİBİ) ---
+                clean_base_url = base_url.rstrip('/') # Linkin sonunda fazladan slash olmasın diye temizliyoruz
+                tracking_url = f"{clean_base_url}/track_open/{log_id}"
+                tracking_pixel = f'<img src="{tracking_url}" width="1" height="1" style="display:none; visibility:hidden;" alt="" />'
+
+                # PİKSELİ HTML'İN İÇİNE GÖMDÜK (reklam_html'in hemen yanına)
+                kurumsal_html = f'''<!DOCTYPE html><html><body style="margin: 0; padding: 0; background-color: #f4f7f6; font-family: sans-serif;"><table width="100%" border="0" cellspacing="0" cellpadding="0" style="padding: 40px 20px;"><tr><td align="center"><table width="600" border="0" cellspacing="0" cellpadding="0" style="background-color: #ffffff; border-radius: 10px; overflow: hidden; box-shadow: 0 5px 15px rgba(0,0,0,0.05);"><tr><td style="background-color: #1a2b3c; padding: 30px; text-align: center;"><h1 style="color: #ffffff; margin: 0; font-size: 24px;">MailKamp</h1></td></tr><tr><td style="padding: 40px 30px; color: #333333; line-height: 1.8;">{kisisel_body}{video_html}</td></tr><tr><td style="background-color: #ecf0f1; padding: 20px 30px; text-align: center;"><p style="margin: 0; font-size: 13px; color: #7f8c8d; font-weight: bold;">© {datetime.now().year} MailKamp</p><p style="margin: 10px 0 0 0; font-size: 12px; color: #95a5a6;">Abonelikten ayrılmak için <a href="{unsubscribe_link}" style="color: #e74c3c;">tıklayınız</a>.</p>{reklam_html}{tracking_pixel}</td></tr></table></td></tr></table></body></html>'''
 
                 msg = MIMEMultipart('related')
                 msg['From'] = sender_email
@@ -740,7 +747,6 @@ def background_mailer(user_id, email_list, subject, body, attachment_paths, vide
     if cover_path:
         cp = Path(cover_path)
         if cp.exists(): cp.unlink()
-
 
 @app.route('/dashboard')
 @login_required
@@ -1091,6 +1097,36 @@ def send_mail():
         flash('Güvenli kampanya gönderimi başarıyla başlatıldı.', 'success')
 
     return redirect(url_for('dashboard'))
+
+
+import io
+import uuid
+from datetime import datetime
+from flask import send_file
+
+
+@app.route('/track_open/<tracking_code>')
+def track_open(tracking_code):
+    # 1. Veritabanında bu kodu bul ve 'okundu' olarak işaretle
+    conn = sqlite3.connect(DB_NAME)
+    cursor = conn.cursor()
+
+    # Okunma zamanını ve durumunu güncelle
+    cursor.execute("""
+                   UPDATE email_logs
+                   SET is_read = 1,
+                       read_at = ?
+                   WHERE tracking_code = ?
+                     AND is_read = 0
+                   """, (datetime.now().strftime('%Y-%m-%d %H:%M:%S'), tracking_code))
+
+    conn.commit()
+    conn.close()
+
+    # 2. Şeffaf 1x1 piksellik bir resim (GIF) oluşturup geri gönder
+    # Bu sayede mail uygulaması hata vermez ve resim yüklendi sanır
+    pixel_data = b'GIF89a\x01\x00\x01\x00\x80\x00\x00\xff\xff\xff\x00\x00\x00!\xf9\x04\x01\x00\x00\x00\x00,\x00\x00\x00\x00\x01\x00\x01\x00\x00\x02\x02D\x01\x00;'
+    return send_file(io.BytesIO(pixel_data), mimetype='image/gif')
 
 @app.route('/')
 def index():
