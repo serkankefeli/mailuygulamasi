@@ -1,6 +1,18 @@
-.venv/
+# Çevresel Değişkenler ve Şifreler (KRİTİK)
+.env
+settings.json
 
-uploads/
-__pycache__/venv/
+# Veritabanı Dosyaları
 *.db
+*.sqlite3
 
+# Kullanıcı Yüklemeleri (Medyalar vs.)
+uploads/
+
+# Python ve Sanal Ortam
+__pycache__/
+.venv/
+venv/
+
+# IDE (PyCharm Ayarları)
+.idea/

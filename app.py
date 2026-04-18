@@ -29,7 +29,9 @@ load_dotenv()
 app = Flask(__name__)
 csrf = CSRFProtect(app)
 
-app.secret_key = os.environ.get('MAILKAMP_SECRET_KEY', 'MAILKAMP_GIZLI_VE_SABIT_ANAHTAR_2026_!@#$')
+app.secret_key = os.environ.get('MAILKAMP_SECRET_KEY')
+if not app.secret_key:
+    raise RuntimeError("HATA: MAILKAMP_SECRET_KEY .env dosyasında bulunamadı!")
 DB_NAME = 'web_mailer_v6.db'
 UPLOAD_FOLDER = 'uploads'
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
@@ -128,16 +130,26 @@ def init_db():
              "Spam filtrelerine takılmadan hızlı teslimat.",
              "© 2026 Mailkamp."))
 
-    cursor.execute('''CREATE TABLE IF NOT EXISTS legal_texts (id INTEGER PRIMARY KEY AUTOINCREMENT, slug TEXT UNIQUE, baslik TEXT, icerik TEXT)''')
-    cursor.execute("SELECT id FROM legal_texts")
-    if not cursor.fetchone():
-        cursor.execute("INSERT INTO legal_texts (slug, baslik, icerik) VALUES (?, ?, ?)", ('satis-sozlesmesi', 'Mesafeli Satış Sözleşmesi', 'Sözleşme içeriği buraya eklenecektir.'))
-        cursor.execute("INSERT INTO legal_texts (slug, baslik, icerik) VALUES (?, ?, ?)", ('kullanim-kosullari', 'Kullanım Koşulları', 'Kullanım koşulları buraya eklenecektir.'))
+        # landing_settings kontrolünden BAĞIMSIZ olarak legal_texts kontrolü yap
+        cursor.execute('''CREATE TABLE IF NOT EXISTS legal_texts
+                          (
+                              id INTEGER PRIMARY KEY AUTOINCREMENT,
+                              slug TEXT UNIQUE,
+                              baslik TEXT,
+                              icerik TEXT
+                          )''')
+
+        cursor.execute("SELECT id FROM legal_texts")
+        if not cursor.fetchone():
+            cursor.execute("INSERT INTO legal_texts (slug, baslik, icerik) VALUES (?, ?, ?)",
+                           ('satis-sozlesmesi', 'Mesafeli Satış Sözleşmesi', 'Sözleşme içeriği buraya eklenecektir.'))
+            cursor.execute("INSERT INTO legal_texts (slug, baslik, icerik) VALUES (?, ?, ?)",
+                           ('kullanim-kosullari', 'Kullanım Koşulları', 'Kullanım koşulları buraya eklenecektir.'))
 
     cursor.execute("SELECT id FROM payment_settings")
     if not cursor.fetchone():
         cursor.execute("INSERT INTO payment_settings (iban_no, banka_adi, hesap_sahibi) VALUES (?, ?, ?)",
-                       ("TR00 0000 0000 0000 0000 0000 00", "Mailkamp Bank", "Serkan Kefeli"))
+                       ("TR00 0000 0000 0000 0000 0000 00", "Banka", "isim Soyisim"))
 
     # --- KRİTİK TEMİZLİK: HAYALET ADMİNİ KOVUYORUZ ---
     # Eğer sistem bir yerlerden bu kullanıcıyı ekliyorsa, burada kökten temizliyoruz.
@@ -425,7 +437,17 @@ def upload_logo():
 
 def background_mailer(user_id, email_list, subject, body, attachment_paths, video_link, cover_path, settings, base_url,
                       is_free_plan=False):
-    host, port, sender_email, sender_pass = settings[2], settings[3], settings[4], settings[5]
+
+    # Ayarları parçalıyoruz
+    host, port, sender_email = settings[2], settings[3], settings[4]
+
+    # --- GÜVENLİK GÜNCELLEMESİ (Sorun 2 Çözümü) ---
+    if user_id == 1:
+        # Eğer gönderen admin ise şifreyi .env dosyasından çek
+        sender_pass = os.environ.get('ADMIN_SMTP_PASSWORD')
+    else:
+        # Normal kullanıcı ise veritabanındaki şifresini kullan
+        sender_pass = settings[5]
 
     with sqlite3.connect(DB_NAME) as conn:
         cursor = conn.cursor()
