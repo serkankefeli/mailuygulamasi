@@ -1,4 +1,5 @@
-from flask import Flask, render_template, request, redirect, url_for, flash, session, jsonify, send_file, send_from_directory
+from flask import Flask, render_template, request, redirect, url_for, flash, session, jsonify, send_file, \
+    send_from_directory
 from flask_login import LoginManager, UserMixin, login_user, login_required, logout_user, current_user
 from werkzeug.security import generate_password_hash, check_password_hash
 from werkzeug.utils import secure_filename
@@ -74,51 +75,206 @@ def init_db():
     conn = sqlite3.connect(DB_NAME)
     cursor = conn.cursor()
 
-    # 1. Tabloları Oluştur
-    cursor.execute('''CREATE TABLE IF NOT EXISTS users (
-        id INTEGER PRIMARY KEY AUTOINCREMENT, 
-        ad_soyad TEXT, 
-        email TEXT UNIQUE, 
-        password_hash TEXT, 
-        is_admin INTEGER DEFAULT 0, 
-        auth_code TEXT,
-        is_blocked INTEGER DEFAULT 0,
-        api_key TEXT,
-        plan_type TEXT DEFAULT 'free',
-        sent_this_month INTEGER DEFAULT 0,
-        contract_accepted INTEGER DEFAULT 0,
-        contract_accepted_date TEXT
-    )''')
-    cursor.execute('''CREATE TABLE IF NOT EXISTS logs (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id INTEGER, tarih TEXT, alici TEXT, konu TEXT, durum TEXT, detay TEXT, okundu INTEGER DEFAULT 0, okunma_tarihi TEXT)''')
-    cursor.execute('''CREATE TABLE IF NOT EXISTS blacklist (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id INTEGER, email TEXT, UNIQUE(user_id, email))''')
-    cursor.execute('''CREATE TABLE IF NOT EXISTS settings (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id INTEGER UNIQUE, host TEXT, port TEXT, user_email TEXT, password TEXT, webhook_url TEXT)''')
-    cursor.execute("CREATE TABLE IF NOT EXISTS contacts (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id INTEGER, name TEXT, email TEXT, UNIQUE(user_id, email))")
-    cursor.execute("CREATE TABLE IF NOT EXISTS groups (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id INTEGER, group_name TEXT, UNIQUE(user_id, group_name))")
-    cursor.execute("CREATE TABLE IF NOT EXISTS contact_group_rel (contact_id INTEGER, group_id INTEGER, UNIQUE(contact_id, group_id))")
-    cursor.execute("CREATE TABLE IF NOT EXISTS templates (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id INTEGER, template_name TEXT, subject TEXT, body TEXT)")
+    cursor.execute('''CREATE TABLE IF NOT EXISTS users
+                      (
+                          id
+                          INTEGER
+                          PRIMARY
+                          KEY
+                          AUTOINCREMENT,
+                          ad_soyad
+                          TEXT,
+                          email
+                          TEXT
+                          UNIQUE,
+                          password_hash
+                          TEXT,
+                          is_admin
+                          INTEGER
+                          DEFAULT
+                          0,
+                          auth_code
+                          TEXT,
+                          is_blocked
+                          INTEGER
+                          DEFAULT
+                          0,
+                          api_key
+                          TEXT,
+                          plan_type
+                          TEXT
+                          DEFAULT
+                          'free',
+                          sent_this_month
+                          INTEGER
+                          DEFAULT
+                          0,
+                          contract_accepted
+                          INTEGER
+                          DEFAULT
+                          0,
+                          contract_accepted_date
+                          TEXT
+                      )''')
+    cursor.execute('''CREATE TABLE IF NOT EXISTS logs
+                      (
+                          id
+                          INTEGER
+                          PRIMARY
+                          KEY
+                          AUTOINCREMENT,
+                          user_id
+                          INTEGER,
+                          tarih
+                          TEXT,
+                          alici
+                          TEXT,
+                          konu
+                          TEXT,
+                          durum
+                          TEXT,
+                          detay
+                          TEXT,
+                          okundu
+                          INTEGER
+                          DEFAULT
+                          0,
+                          okunma_tarihi
+                          TEXT
+                      )''')
+    cursor.execute('''CREATE TABLE IF NOT EXISTS blacklist
+    (
+        id
+        INTEGER
+        PRIMARY
+        KEY
+        AUTOINCREMENT,
+        user_id
+        INTEGER,
+        email
+        TEXT,
+        UNIQUE
+                      (
+        user_id,
+        email
+                      ))''')
+    cursor.execute('''CREATE TABLE IF NOT EXISTS settings
+                      (
+                          id
+                          INTEGER
+                          PRIMARY
+                          KEY
+                          AUTOINCREMENT,
+                          user_id
+                          INTEGER
+                          UNIQUE,
+                          host
+                          TEXT,
+                          port
+                          TEXT,
+                          user_email
+                          TEXT,
+                          password
+                          TEXT,
+                          webhook_url
+                          TEXT
+                      )''')
+    cursor.execute(
+        "CREATE TABLE IF NOT EXISTS contacts (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id INTEGER, name TEXT, email TEXT, UNIQUE(user_id, email))")
+    cursor.execute(
+        "CREATE TABLE IF NOT EXISTS groups (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id INTEGER, group_name TEXT, UNIQUE(user_id, group_name))")
+    cursor.execute(
+        "CREATE TABLE IF NOT EXISTS contact_group_rel (contact_id INTEGER, group_id INTEGER, UNIQUE(contact_id, group_id))")
+    cursor.execute(
+        "CREATE TABLE IF NOT EXISTS templates (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id INTEGER, template_name TEXT, subject TEXT, body TEXT)")
 
-    cursor.execute('''CREATE TABLE IF NOT EXISTS payment_settings (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        active_methods TEXT DEFAULT 'havale',
-        iban_no TEXT, banka_adi TEXT, hesap_sahibi TEXT, pro_price REAL DEFAULT 150.00,
-        paytr_id TEXT, paytr_key TEXT, iyzico_api_key TEXT, iyzico_secret_key TEXT
-    )''')
+    cursor.execute('''CREATE TABLE IF NOT EXISTS payment_settings
+                      (
+                          id
+                          INTEGER
+                          PRIMARY
+                          KEY
+                          AUTOINCREMENT,
+                          active_methods
+                          TEXT
+                          DEFAULT
+                          'havale',
+                          iban_no
+                          TEXT,
+                          banka_adi
+                          TEXT,
+                          hesap_sahibi
+                          TEXT,
+                          pro_price
+                          REAL
+                          DEFAULT
+                          150.00,
+                          paytr_id
+                          TEXT,
+                          paytr_key
+                          TEXT,
+                          iyzico_api_key
+                          TEXT,
+                          iyzico_secret_key
+                          TEXT
+                      )''')
 
-    cursor.execute('''CREATE TABLE IF NOT EXISTS upgrade_requests (
-        id INTEGER PRIMARY KEY AUTOINCREMENT, user_id INTEGER, talep_tarihi TEXT, odeme_metodu TEXT, durum TEXT DEFAULT 'beklemede', notlar TEXT
-    )''')
+    cursor.execute('''CREATE TABLE IF NOT EXISTS upgrade_requests
+                      (
+                          id
+                          INTEGER
+                          PRIMARY
+                          KEY
+                          AUTOINCREMENT,
+                          user_id
+                          INTEGER,
+                          talep_tarihi
+                          TEXT,
+                          odeme_metodu
+                          TEXT,
+                          durum
+                          TEXT
+                          DEFAULT
+                          'beklemede',
+                          notlar
+                          TEXT
+                      )''')
 
-    cursor.execute('''CREATE TABLE IF NOT EXISTS landing_settings (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        hero_title TEXT, hero_subtitle TEXT,
-        f1_title TEXT, f1_desc TEXT,
-        f2_title TEXT, f2_desc TEXT,
-        f3_title TEXT, f3_desc TEXT,
-        footer_text TEXT, ga_id TEXT, looker_url TEXT,
-        hero_image TEXT, promo_video TEXT
-    )''')
+    cursor.execute('''CREATE TABLE IF NOT EXISTS landing_settings
+                      (
+                          id
+                          INTEGER
+                          PRIMARY
+                          KEY
+                          AUTOINCREMENT,
+                          hero_title
+                          TEXT,
+                          hero_subtitle
+                          TEXT,
+                          f1_title
+                          TEXT,
+                          f1_desc
+                          TEXT,
+                          f2_title
+                          TEXT,
+                          f2_desc
+                          TEXT,
+                          f3_title
+                          TEXT,
+                          f3_desc
+                          TEXT,
+                          footer_text
+                          TEXT,
+                          ga_id
+                          TEXT,
+                          looker_url
+                          TEXT,
+                          hero_image
+                          TEXT,
+                          promo_video
+                          TEXT
+                      )''')
 
-    # 2. Varsayılan Ayarları Ekle
     cursor.execute("SELECT id FROM landing_settings")
     if not cursor.fetchone():
         cursor.execute(
@@ -130,13 +286,20 @@ def init_db():
              "Spam filtrelerine takılmadan hızlı teslimat.",
              "© 2026 Mailkamp."))
 
-        # landing_settings kontrolünden BAĞIMSIZ olarak legal_texts kontrolü yap
         cursor.execute('''CREATE TABLE IF NOT EXISTS legal_texts
                           (
-                              id INTEGER PRIMARY KEY AUTOINCREMENT,
-                              slug TEXT UNIQUE,
-                              baslik TEXT,
-                              icerik TEXT
+                              id
+                              INTEGER
+                              PRIMARY
+                              KEY
+                              AUTOINCREMENT,
+                              slug
+                              TEXT
+                              UNIQUE,
+                              baslik
+                              TEXT,
+                              icerik
+                              TEXT
                           )''')
 
         cursor.execute("SELECT id FROM legal_texts")
@@ -149,26 +312,38 @@ def init_db():
     cursor.execute("SELECT id FROM payment_settings")
     if not cursor.fetchone():
         cursor.execute("INSERT INTO payment_settings (iban_no, banka_adi, hesap_sahibi) VALUES (?, ?, ?)",
-                       ("TR00 0000 0000 0000 0000 0000 00", "Banka", "isim Soyisim"))
+                       ("TR00 0000 0000 0000 0000 0000 00", "Mailkamp Bank", "Serkan Kefeli"))
 
-    # --- KRİTİK TEMİZLİK: HAYALET ADMİNİ KOVUYORUZ ---
-    # Eğer sistem bir yerlerden bu kullanıcıyı ekliyorsa, burada kökten temizliyoruz.
+    # --- AKILLI VE GÜVENLİ ADMİN KONTROLÜ (YENİ EKLENEN KISIM BURASI) ---
+    cursor.execute("SELECT id FROM users WHERE email = ?", ("kefelisekran@gmail.com",))
+    if not cursor.fetchone():
+        from werkzeug.security import generate_password_hash
+        import secrets
+
+        # ŞİFREYİ KODDAN DEĞİL, GİZLİ .ENV DOSYASINDAN ÇEKİYORUZ!
+        ilk_sifre = os.environ.get('ADMIN_INITIAL_PASSWORD')
+
+        # Eğer .env dosyasında şifre yoksa, güvenlik için rastgele karmaşık bir şifre üret
+        if not ilk_sifre:
+            ilk_sifre = secrets.token_hex(8)
+            print(f"DİKKAT: .env dosyasında şifre bulunamadı. Rastgele şifre üretildi: {ilk_sifre}")
+
+        hashed_pw = generate_password_hash(ilk_sifre)
+        api_key = secrets.token_hex(24)
+
+        cursor.execute("""
+                       INSERT INTO users (ad_soyad, email, password_hash, is_admin, plan_type, api_key)
+                       VALUES (?, ?, ?, 1, 'pro', ?)
+                       """, ("Serkan Kefeli", "kefelisekran@gmail.com", hashed_pw, api_key))
+
+        print("Sistem: Güvenli varsayılan admin (kefelisekran@gmail.com) oluşturuldu.")
+
+    # Gereksiz hayalet kullanıcıyı temizle
     cursor.execute("DELETE FROM users WHERE email = 'admin@sistem.com'")
-    # -------------------------------------------------
+    # -------------------------------------------------------------------
 
     conn.commit()
     conn.close()
-
-
-def premium_required(f):
-    @wraps(f)
-    def decorated_function(*args, **kwargs):
-        if current_user.is_admin != 1 and getattr(current_user, 'plan_type', 'free') == 'free':
-            flash('🌟 Bu özellik PRO pakete özeldir! Lütfen planınızı yükseltin.', 'warning')
-            return redirect(url_for('upgrade'))
-        return f(*args, **kwargs)
-
-    return decorated_function
 
 
 @app.route('/admin/legal-edit', methods=['GET', 'POST'])
@@ -437,7 +612,6 @@ def upload_logo():
 
 def background_mailer(user_id, email_list, subject, body, attachment_paths, video_link, cover_path, settings, base_url,
                       is_free_plan=False):
-
     # Ayarları parçalıyoruz
     host, port, sender_email = settings[2], settings[3], settings[4]
 
@@ -554,6 +728,7 @@ def background_mailer(user_id, email_list, subject, body, attachment_paths, vide
     if cover_path:
         cp = Path(cover_path)
         if cp.exists(): cp.unlink()
+
 
 @app.route('/dashboard')
 @login_required
@@ -686,6 +861,7 @@ def delete_group(group_id):
     conn.close()
     flash('Grup başarıyla silindi.', 'success')
     return redirect(request.referrer or url_for('contacts'))
+
 
 @app.route('/save_settings', methods=['POST'])
 @login_required
@@ -904,7 +1080,6 @@ def admin_site_settings():
     conn = sqlite3.connect(DB_NAME)
     cursor = conn.cursor()
 
-
     if request.method == 'POST':
         ht = request.form.get('hero_title', '')
         hs = request.form.get('hero_subtitle', '')
@@ -927,9 +1102,21 @@ def admin_site_settings():
             image_file.save(filepath)
             hero_image_path = filename
 
-        cursor.execute("""UPDATE landing_settings SET 
-            hero_title=?, hero_subtitle=?, f1_title=?, f1_desc=?, 
-            f2_title=?, f2_desc=?, f3_title=?, f3_desc=?, footer_text=?, ga_id=?, looker_url=?, hero_image=?, promo_video=? WHERE id=1""",
+        cursor.execute("""UPDATE landing_settings
+                          SET hero_title=?,
+                              hero_subtitle=?,
+                              f1_title=?,
+                              f1_desc=?,
+                              f2_title=?,
+                              f2_desc=?,
+                              f3_title=?,
+                              f3_desc=?,
+                              footer_text=?,
+                              ga_id=?,
+                              looker_url=?,
+                              hero_image=?,
+                              promo_video=?
+                          WHERE id = 1""",
                        (ht, hs, f1t, f1d, f2t, f2d, f3t, f3d, ft, ga, lu, hero_image_path, promo_video))
         conn.commit()
         flash('Site, Medya ve SEO ayarları başarıyla güncellendi!', 'success')
@@ -1263,7 +1450,7 @@ def toggle_role(id):
     return redirect(url_for('admin_users'))
 
 
-@app.route('/admin/toggle_block/<int:id>',methods=['POST'])
+@app.route('/admin/toggle_block/<int:id>', methods=['POST'])
 @login_required
 def toggle_block(id):
     if current_user.is_admin != 1: return redirect(url_for('dashboard'))
@@ -1283,7 +1470,7 @@ def toggle_block(id):
     return redirect(url_for('admin_users'))
 
 
-@app.route('/admin/delete_user/<int:id>',methods=['POST'])
+@app.route('/admin/delete_user/<int:id>', methods=['POST'])
 @login_required
 def delete_user(id):
     if current_user.is_admin != 1: return redirect(url_for('dashboard'))
@@ -1312,11 +1499,11 @@ def upgrade():
 
         if contract_accepted:
             cursor.execute("""
-                UPDATE users 
-                SET contract_accepted = 1, 
-                    contract_accepted_date = ? 
-                WHERE id = ?
-            """, (tarih, current_user.id))
+                           UPDATE users
+                           SET contract_accepted      = 1,
+                               contract_accepted_date = ?
+                           WHERE id = ?
+                           """, (tarih, current_user.id))
 
         cursor.execute("INSERT INTO upgrade_requests (user_id, talep_tarihi, odeme_metodu) VALUES (?, ?, ?)",
                        (current_user.id, tarih, 'Havale/EFT'))
@@ -1354,10 +1541,15 @@ def payment_management():
         iyzico_key = request.form.get('iyzico_key', '').strip()
         iyzico_secret = request.form.get('iyzico_secret', '').strip()
 
-        cursor.execute("""UPDATE payment_settings SET 
-            active_methods=?, iban_no=?, pro_price=?, 
-            paytr_id=?, paytr_key=?, iyzico_api_key=?, iyzico_secret_key=? 
-            WHERE id=1""",
+        cursor.execute("""UPDATE payment_settings
+                          SET active_methods=?,
+                              iban_no=?,
+                              pro_price=?,
+                              paytr_id=?,
+                              paytr_key=?,
+                              iyzico_api_key=?,
+                              iyzico_secret_key=?
+                          WHERE id = 1""",
                        (metotlar, iban, price, paytr_id, paytr_key, iyzico_key, iyzico_secret))
 
         conn.commit()
@@ -1390,6 +1582,7 @@ def approve_upgrade(req_id):
         flash('Kullanıcı başarıyla PRO pakete yükseltildi!', 'success')
     conn.close()
     return redirect(url_for('payment_management'))
+
 
 # DİKKAT: GET METODU EKLENDİ, HTML'DEKİ LİNKLERİN ÇALIŞMASI İÇİN
 @app.route('/admin/reject_upgrade/<int:req_id>', methods=['GET', 'POST'])
