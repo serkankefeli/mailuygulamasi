@@ -318,7 +318,7 @@ def init_db():
                        ("TR00 0000 0000 0000 0000 0000 00", "Mailkamp Bank", "Serkan Kefeli"))
 
     # --- 4. AKILLI VE GÜVENLİ ADMİN KONTROLÜ ---
-    cursor.execute("SELECT id FROM users WHERE email = ?", ("kefelisekran@gmail.com",))
+    cursor.execute("SELECT id FROM users WHERE email = ?", ("kefeliserkan@gmail.com",))
     if not cursor.fetchone():
         from werkzeug.security import generate_password_hash
         import secrets
