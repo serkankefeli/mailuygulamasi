@@ -257,37 +257,45 @@
     }
 
     document.addEventListener('DOMContentLoaded', function() {
-        // Hoş Geldin Modalı Gösterimi
-        var myModal = new bootstrap.Modal(document.getElementById('welcomeModal'));
-        myModal.show();
+        // Hoş Geldin Modalı Gösterimi (Tarayıcı Hafızası Kontrollü)
+        if (!localStorage.getItem('mailkamp_rehber_gosterildi')) {
+            var myModalElement = document.getElementById('welcomeModal');
+            if(myModalElement) {
+                var myModal = new bootstrap.Modal(myModalElement);
+                myModal.show();
+                localStorage.setItem('mailkamp_rehber_gosterildi', 'true');
+            }
+        }
 
         // Trend Grafiği Çizimi (Chart.js)
-        const ctx = document.getElementById('trendChart').getContext('2d');
-        new Chart(ctx, {
-            type: 'line',
-            data: {
-                labels: {{ stats.trend_labels | tojson | safe }},
-                datasets: [{
-                    label: 'Gönderim',
-                    data: {{ stats.trend_counts | tojson | safe }},
-                    borderColor: '#0d6efd',
-                    backgroundColor: 'rgba(13, 110, 253, 0.05)',
-                    tension: 0.4,
-                    fill: true,
-                    pointRadius: 4,
-                    pointBackgroundColor: '#fff',
-                    pointBorderWidth: 2
-                }]
-            },
-            options: {
-                responsive: true,
-                plugins: { legend: { display: false } },
-                scales: {
-                    y: { beginAtZero: true, grid: { display: false } },
-                    x: { grid: { display: false } }
+        const ctx = document.getElementById('trendChart');
+        if(ctx) {
+            new Chart(ctx.getContext('2d'), {
+                type: 'line',
+                data: {
+                    labels: {{ stats.trend_labels | tojson | safe }},
+                    datasets: [{
+                        label: 'Gönderim',
+                        data: {{ stats.trend_counts | tojson | safe }},
+                        borderColor: '#0d6efd',
+                        backgroundColor: 'rgba(13, 110, 253, 0.05)',
+                        tension: 0.4,
+                        fill: true,
+                        pointRadius: 4,
+                        pointBackgroundColor: '#fff',
+                        pointBorderWidth: 2
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    plugins: { legend: { display: false } },
+                    scales: {
+                        y: { beginAtZero: true, grid: { display: false } },
+                        x: { grid: { display: false } }
+                    }
                 }
-            }
-        });
+            });
+        }
     });
 </script>
 {% endblock %}

@@ -697,8 +697,7 @@ def background_mailer(user_id, email_list, subject, body, attachment_paths, vide
                 # --- 🎯 GÖRÜNMEZ PİKSEL KODU (OKUNDU TAKİBİ) ---
                 clean_base_url = base_url.rstrip('/') # Linkin sonunda fazladan slash olmasın diye temizliyoruz
                 tracking_url = f"{clean_base_url}/track_open/{log_id}"
-                tracking_pixel = f'<img src="{tracking_url}" width="1" height="1" style="display:none; visibility:hidden;" alt="" />'
-
+                tracking_pixel = f'<img src="{tracking_url}" width="1" height="1" style="border:0; margin:0; padding:0; opacity:0.01;" alt="." />'
                 # PİKSELİ HTML'İN İÇİNE GÖMDÜK (reklam_html'in hemen yanına)
                 kurumsal_html = f'''<!DOCTYPE html><html><body style="margin: 0; padding: 0; background-color: #f4f7f6; font-family: sans-serif;"><table width="100%" border="0" cellspacing="0" cellpadding="0" style="padding: 40px 20px;"><tr><td align="center"><table width="600" border="0" cellspacing="0" cellpadding="0" style="background-color: #ffffff; border-radius: 10px; overflow: hidden; box-shadow: 0 5px 15px rgba(0,0,0,0.05);"><tr><td style="background-color: #1a2b3c; padding: 30px; text-align: center;"><h1 style="color: #ffffff; margin: 0; font-size: 24px;">MailKamp</h1></td></tr><tr><td style="padding: 40px 30px; color: #333333; line-height: 1.8;">{kisisel_body}{video_html}</td></tr><tr><td style="background-color: #ecf0f1; padding: 20px 30px; text-align: center;"><p style="margin: 0; font-size: 13px; color: #7f8c8d; font-weight: bold;">© {datetime.now().year} MailKamp</p><p style="margin: 10px 0 0 0; font-size: 12px; color: #95a5a6;">Abonelikten ayrılmak için <a href="{unsubscribe_link}" style="color: #e74c3c;">tıklayınız</a>.</p>{reklam_html}{tracking_pixel}</td></tr></table></td></tr></table></body></html>'''
 
@@ -1060,7 +1059,7 @@ def send_mail():
             file.save(filepath)
             attachment_paths.append(filepath)
 
-    # --- ZAMANLAMA (SCHEDULING) HESAPLAMASI ---
+    # --- ZAMANLAMA HESAPLAMASI (Girinti düzeltildi, artık for döngüsünün dışında!) ---
     send_time_str = request.form.get('send_time')
     delay = 0
     if send_time_str:
@@ -1074,8 +1073,9 @@ def send_mail():
             now = datetime.now()
             if send_time > now:
                 delay = (send_time - now).total_seconds()
-        except Exception:
-            pass  # Tarih formatı hatalıysa varsayılan olarak anında gönderir
+                print(f"ZAMANLAMA BİLGİSİ: Mail {delay} saniye sonra atılacak! (Sunucu Saati: {now})")
+        except Exception as e:
+            print(f"Zamanlama Hatası: {e}")
 
     base_url = request.host_url
     is_free_plan = (getattr(current_user, 'is_admin', 0) != 1 and getattr(current_user, 'plan_type', 'free') == 'free')
@@ -1105,26 +1105,20 @@ from datetime import datetime
 from flask import send_file
 
 
-@app.route('/track_open/<tracking_code>')
-def track_open(tracking_code):
-    # 1. Veritabanında bu kodu bul ve 'okundu' olarak işaretle
-    conn = sqlite3.connect(DB_NAME)
-    cursor = conn.cursor()
+@app.route('/track_open/<int:log_id>')
+def track_open(log_id):
+    print(f"SİNYAL ALINDI: {log_id} numaralı e-posta şu an açıldı!")  # BU SATIRI EKLE
 
-    # Okunma zamanını ve durumunu güncelle
-    cursor.execute("""
-                   UPDATE email_logs
-                   SET is_read = 1,
-                       read_at = ?
-                   WHERE tracking_code = ?
-                     AND is_read = 0
-                   """, (datetime.now().strftime('%Y-%m-%d %H:%M:%S'), tracking_code))
+    with sqlite3.connect(DB_NAME) as conn:
+        conn.execute("""
+                     UPDATE logs
+                     SET durum = 'Okundu',
+                         detay = 'Kullanıcı e-postayı açtı.'
+                     WHERE id = ?
+                       AND durum != 'Okundu'
+                     """, (log_id,))
+        conn.commit()
 
-    conn.commit()
-    conn.close()
-
-    # 2. Şeffaf 1x1 piksellik bir resim (GIF) oluşturup geri gönder
-    # Bu sayede mail uygulaması hata vermez ve resim yüklendi sanır
     pixel_data = b'GIF89a\x01\x00\x01\x00\x80\x00\x00\xff\xff\xff\x00\x00\x00!\xf9\x04\x01\x00\x00\x00\x00,\x00\x00\x00\x00\x01\x00\x01\x00\x00\x02\x02D\x01\x00;'
     return send_file(io.BytesIO(pixel_data), mimetype='image/gif')
 
