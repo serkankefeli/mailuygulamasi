@@ -1,0 +1,388 @@
+{% extends "base.html" %}
+
+{% block head %}
+<link href="{{ url_for('static', filename='css/modern-dashboard.css') }}" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid p-4 fade-in-up">
+
+    <!-- Welcome Modal -->
+    <div class="modal fade modal-modern" id="welcomeModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title fw-bold"><i class="fas fa-rocket me-2"></i>MailKamp'a Ho Geldiniz!</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body p-4">
+                    <p class="text-muted">Sistemi siber güvenlik standartlar nda ve en verimli sekilde kullanmak için bu 3 ad m takip edin:</p>
+                    
+                    <div class="d-flex align-items-start mb-4 bg-light p-3 rounded-3">
+                        <div class="badge bg-primary p-2 me-3"><i class="fas fa-cog"></i></div>
+                        <div>
+                            <h6 class="fw-bold mb-1">1. SMTP Yap land rmas</h6>
+                            <small class="text-muted">Ayarlar sekmesinden mailaltyap n z kurun. Kurumsal bilgiler için IT departman n za dan n.</small>
+                        </div>
+                    </div>
+                    
+                    <div class="d-flex align-items-start mb-4 bg-light p-3 rounded-3">
+                        <div class="badge bg-success p-2 me-3"><i class="fas fa-address-book"></i></div>
+                        <div>
+                            <h6 class="fw-bold mb-1">2. Rehberinizi Haz rlay n</h6>
+                            <small class="text-muted">Ki ilerinizi gruplayarak yükleyin. Kara liste (Blacklist) ayarlar n z kontrol edin.</small>
+                        </div>
+                    </div>
+                    
+                    <div class="d-flex align-items-start bg-light p-3 rounded-3">
+                        <div class="badge bg-warning p-2 me-3"><i class="fas fa-paper-plane"></i></div>
+                        <div>
+                            <h6 class="fw-bold mb-1">3. Kampanyan z Ba lat n</h6>
+                            <small class="text-muted">Sablonunuzu olu turun, {isim} etiketiyle ki iselle tirin ve testi yap n!</small>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer border-0">
+                    <button type="button" class="btn btn-primary-modern btn-modern w-100 fw-bold" data-bs-dismiss="modal">Harika, Ba layal m!</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Upgrade Alert -->
+    {% if current_user.plan_type == 'free' and current_user.is_admin != 1 %}
+    <div class="alert alert-modern alert-warning fade-in-up mb-4">
+        <div class="d-flex flex-column flex-md-row justify-content-between align-items-center">
+            <div class="mb-3 mb-md-0">
+                <h5 class="fw-bold mb-1 text-dark"><i class="fas fa-bolt text-warning"></i> Sn rlar Kald rma Vakti!</h5>
+                <span class="text-dark opacity-75">Su anda <strong>Ücretsiz Plan</strong> kullan yorsunuz. Y ll k e-posta limiti ve k stl özelliklerle devam ediyorsunuz.</span>
+            </div>
+            <div>
+                <a href="{{ url_for('upgrade') }}" class="btn btn-primary-modern btn-modern">
+                    <i class="fas fa-rocket"></i> Sn rlar Kald r
+                </a>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Stats Cards -->
+    <div class="row mb-4">
+        <div class="col-md-3 mb-3">
+            <div class="stat-card primary modern-card">
+                <div class="d-flex align-items-center">
+                    <div class="flex-grow-1">
+                        <h6 class="text-muted text-uppercase small fw-bold mb-2">Bu Ay Gönderilen</h6>
+                        <h3 class="stat-number">{{ stats.sent_this_month }}</h3>
+                        <small class="text-muted">/ {% if current_user.plan_type == 'free' %}3000{% else %}8{% endif %}</small>
+                    </div>
+                    <div class="ms-3">
+                        <div class="icon-box bg-primary bg-opacity-10 p-3 rounded-circle">
+                            <i class="fas fa-paper-plane text-primary fa-2x"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-3 mb-3">
+            <div class="stat-card success modern-card">
+                <div class="d-flex align-items-center">
+                    <div class="flex-grow-1">
+                        <h6 class="text-muted text-uppercase small fw-bold mb-2">Okunan (A lan)</h6>
+                        <h3 class="stat-number text-success">{{ stats.read }}</h3>
+                    </div>
+                    <div class="ms-3">
+                        <div class="icon-box bg-success bg-opacity-10 p-3 rounded-circle">
+                            <i class="fas fa-envelope-open text-success fa-2x"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-3 mb-3">
+            <div class="stat-card warning modern-card">
+                <div class="d-flex align-items-center">
+                    <div class="flex-grow-1">
+                        <h6 class="text-muted text-uppercase small fw-bold mb-2">Bekleyen</h6>
+                        <h3 class="stat-number text-warning">{{ stats.unread }}</h3>
+                    </div>
+                    <div class="ms-3">
+                        <div class="icon-box bg-warning bg-opacity-10 p-3 rounded-circle">
+                            <i class="fas fa-clock text-warning fa-2x"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-3 mb-3">
+            <div class="stat-card danger modern-card">
+                <div class="d-flex align-items-center">
+                    <div class="flex-grow-1">
+                        <h6 class="text-muted text-uppercase small fw-bold mb-2">Hatal / Filtrelenen</h6>
+                        <h3 class="stat-number text-danger">{{ stats.error + stats.skipped }}</h3>
+                    </div>
+                    <div class="ms-3">
+                        <div class="icon-box bg-danger bg-opacity-10 p-3 rounded-circle">
+                            <i class="fas fa-exclamation-triangle text-danger fa-2x"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Main Content -->
+    <div class="row">
+        <div class="col-lg-8 mb-4">
+            <div class="modern-card">
+                <div class="card-header bg-white py-3 border-bottom d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0 fw-bold text-dark"><i class="fas fa-paper-plane text-primary me-2"></i> Kampanya Olu turucu</h5>
+                    <button type="button" class="btn btn-sm btn-outline-primary" data-bs-toggle="modal" data-bs-target="#saveTemplateModal">
+                        <i class="fas fa-save me-1"></i> Mevcutu Sablon Yap
+                    </button>
+                </div>
+
+                <div class="card-body p-4">
+                    <form action="{{ url_for('send_mail') }}" method="POST" enctype="multipart/form-data" class="form-modern">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+
+                        <div class="row mb-4 p-3 rounded-3 border bg-light">
+                            <div class="col-md-6 border-md-end">
+                                <label class="form-label fw-bold small text-primary text-uppercase">1. Al c Grubu</label>
+                                <select class="form-select form-control-modern" name="target_group">
+                                    <option value="">-- Sadece Manuel Girece im --</option>
+                                    {% if groups %}
+                                        {% for group in groups %}
+                                            <option value="{{ group.0 }}">{{ group.1 }}</option>
+                                        {% endfor %}
+                                    {% endif %}
+                                </select>
+                            </div>
+                            <div class="col-md-6 ps-md-4 mt-3 mt-md-0">
+                                <label class="form-label fw-bold small text-primary text-uppercase">2. Ekstra Al c lar</label>
+                                <textarea class="form-control form-control-modern" name="emails" rows="1" placeholder="virgül ile ay rarak yaz n..."></textarea>
+                            </div>
+                        </div>
+
+                        <div class="row mb-3">
+                            <div class="col-md-8">
+                                <label class="form-label fw-bold small">Kampanya Ba l (Konu)</label>
+                                <input type="text" class="form-control form-control-modern" name="subject" id="mailSubject" required placeholder="Örn: %20 ndirim F rsat n Ka rmay n!">
+                            </div>
+                            <div class="col-md-4 mt-3 mt-md-0">
+                                <label class="form-label fw-bold small text-warning">H zl Sablonlar</label>
+                                <select class="form-select form-control-modern" id="templateSelect" onchange="loadTemplate(this.value)">
+                                    <option value="">-- Sablon Seç --</option>
+                                    {% for tpl in templates %}
+                                        <option value="{{ tpl[0] }}">{{ tpl[1] }}</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                        </div>
+
+                        <div class="mb-4">
+                            <label class="form-label fw-bold small">E-Posta eri i</label>
+                            <textarea name="body" id="mailBody" class="form-control form-control-modern" rows="8" placeholder="Mesaj n z buraya yaz n. HTML kodlar veya {isim} etiketi kullanabilirsiniz." required></textarea>
+                        </div>
+
+                        <div class="accordion mb-4" id="advancedSettingsAccordion">
+                            <div class="accordion-item border-0">
+                                <h2 class="accordion-header">
+                                    <button class="accordion-button collapsed fw-bold text-dark bg-light rounded" type="button" data-bs-toggle="collapse" data-bs-target="#collapseAdvanced">
+                                        <i class="fas fa-sliders-h me-2 text-primary"></i> Medya & Zamanlama Ayarlar
+                                    </button>
+                                </h2>
+                                <div id="collapseAdvanced" class="accordion-collapse collapse" data-bs-parent="#advancedSettingsAccordion">
+                                    <div class="accordion-body bg-white border-top">
+                                        <div class="row g-3">
+                                            <div class="col-md-6 border-end pe-md-3">
+                                                <label class="form-label fw-bold small"><i class="fab fa-youtube text-danger me-1"></i> Video Linki</label>
+                                                <input type="url" name="video_link" class="form-control form-control-modern mb-3">
+                                                <label class="form-label fw-bold small"><i class="fas fa-image text-success me-1"></i> Kapak Resmi</label>
+                                                <input type="file" name="video_cover" class="form-control form-control-modern" accept="image/*">
+                                            </div>
+                                            <div class="col-md-6 ps-md-3">
+                                                <label class="form-label fw-bold small"><i class="fas fa-paperclip text-secondary me-1"></i> Ek Dosya</label>
+                                                <input type="file" name="attachment" class="form-control form-control-modern mb-3" multiple>
+                                                <label class="form-label fw-bold small"><i class="fas fa-clock text-warning me-1"></i> Gönderim Zaman</label>
+                                                <input type="datetime-local" name="send_time" class="form-control form-control-modern">
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="d-grid">
+                            <button type="submit" class="btn btn-primary-modern btn-modern btn-lg fw-bold">
+                                <i class="fas fa-paper-plane me-2"></i> Güvenli Gönderimi Ba lat
+                            </button>
+                            <small class="text-center text-muted mt-2"><i class="fas fa-shield-alt me-1"></i> Kara liste (Blacklist) kontrolleri otomatik olarak uygulanacakt r.</small>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-lg-4">
+            <div class="modern-card mb-4">
+                <div class="card-header bg-white py-3 border-bottom">
+                    <h5 class="mb-0 fw-bold"><i class="fas fa-chart-line text-primary me-2"></i> Performans Takibi</h5>
+                </div>
+                <div class="card-body">
+                    <div class="chart-container">
+                        <canvas id="trendChart"></canvas>
+                    </div>
+                </div>
+            </div>
+
+            <div class="modern-card bg-dark text-white p-4 text-center">
+                <div class="mb-3"><i class="fas fa-users-cog fa-3x opacity-25"></i></div>
+                <h5 class="fw-bold">H zl Ki i Yönetimi</h5>
+                <p class="small opacity-75 mb-4">Rehberinizi güncel tutun, daha yüksek etkile im oranlar yakalay n.</p>
+                <a href="{{ url_for('contacts') }}" class="btn btn-primary-modern btn-modern w-100">Rehber ve Gruplara Git</a>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Save Template Modal -->
+<div class="modal fade modal-modern" id="saveTemplateModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <form action="{{ url_for('save_template') }}" method="POST">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+                <div class="modal-header">
+                    <h5 class="modal-title fw-bold">Sablon Olarak Kaydet</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label fw-bold">Sablon Ad</label>
+                        <input type="text" name="template_name" class="form-control form-control-modern" required placeholder="Örn: Ho geldin Maili">
+                    </div>
+                    <div class="alert alert-info border-0 py-2 small mb-0">
+                        <i class="fas fa-info-circle me-1"></i> Su an ekranda yaz lan Konu ve Mesaj içeri i bu isimle kaydedilecektir.
+                    </div>
+                </div>
+                <div class="modal-footer border-top-0">
+                    <button type="button" class="btn btn-light" data-bs-dismiss="modal"> ptal</button>
+                    <button type="submit" class="btn btn-primary-modern btn-modern fw-bold" onclick="copyFormData()">Kaydet</button>
+                </div>
+                <input type="hidden" name="subject" id="modalSubject">
+                <input type="hidden" name="body" id="modalBody">
+            </form>
+        </div>
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+    // Template Management
+    function copyFormData() {
+        document.getElementById('modalSubject').value = document.getElementById('mailSubject').value;
+        document.getElementById('modalBody').value = document.getElementById('mailBody').value;
+    }
+
+    function loadTemplate(id) {
+        if(!id) {
+            document.getElementById('mailSubject').value = '';
+            document.getElementById('mailBody').value = '';
+            return;
+        }
+        fetch('/api/get_template/' + id)
+        .then(res => res.json())
+        .then(data => {
+            if(data.subject) document.getElementById('mailSubject').value = data.subject;
+            if(data.body) document.getElementById('mailBody').value = data.body;
+        });
+    }
+
+    // Initialize on DOM Load
+    document.addEventListener('DOMContentLoaded', function() {
+        // Welcome Modal
+        if (!localStorage.getItem('mailkamp_rehber_gosterildi')) {
+            var myModalElement = document.getElementById('welcomeModal');
+            if(myModalElement) {
+                var myModal = new bootstrap.Modal(myModalElement);
+                myModal.show();
+                localStorage.setItem('mailkamp_rehber_gosterildi', 'true');
+            }
+        }
+
+        // Trend Chart
+        const ctx = document.getElementById('trendChart');
+        if(ctx) {
+            new Chart(ctx.getContext('2d'), {
+                type: 'line',
+                data: {
+                    labels: {{ stats.trend_labels | tojson | safe }},
+                    datasets: [{
+                        label: 'Gönderim',
+                        data: {{ stats.trend_counts | tojson | safe }},
+                        borderColor: '#667eea',
+                        backgroundColor: 'rgba(102, 126, 234, 0.1)',
+                        tension: 0.4,
+                        fill: true,
+                        pointRadius: 6,
+                        pointBackgroundColor: '#fff',
+                        pointBorderWidth: 2,
+                        pointBorderColor: '#667eea',
+                        pointHoverRadius: 8
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { 
+                        legend: { display: false },
+                        tooltip: {
+                            backgroundColor: 'rgba(0, 0, 0, 0.8)',
+                            padding: 12,
+                            cornerRadius: 8,
+                            titleFont: { size: 14, weight: 'bold' },
+                            bodyFont: { size: 12 }
+                        }
+                    },
+                    scales: {
+                        y: { 
+                            beginAtZero: true, 
+                            grid: { 
+                                color: 'rgba(0, 0, 0, 0.05)',
+                                drawBorder: false
+                            },
+                            ticks: {
+                                font: { size: 11 }
+                            }
+                        },
+                        x: { 
+                            grid: { display: false },
+                            ticks: {
+                                font: { size: 11 }
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        // Add animations to stat cards
+        const observer = new IntersectionObserver((entries) => {
+            entries.forEach(entry => {
+                if (entry.isIntersecting) {
+                    entry.target.classList.add('fade-in-up');
+                }
+            });
+        });
+
+        document.querySelectorAll('.stat-card').forEach(card => {
+            observer.observe(card);
+        });
+    });
+</script>
+{% endblock %}

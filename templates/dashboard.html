@@ -270,13 +270,16 @@
         // Trend Grafiği Çizimi (Chart.js)
         const ctx = document.getElementById('trendChart');
         if(ctx) {
+            const trendLabels = {{ stats.trend_labels | tojson | safe }};
+            const trendCounts = {{ stats.trend_counts | tojson | safe }};
+            
             new Chart(ctx.getContext('2d'), {
                 type: 'line',
                 data: {
-                    labels: {{ stats.trend_labels | tojson | safe }},
+                    labels: trendLabels,
                     datasets: [{
                         label: 'Gönderim',
-                        data: {{ stats.trend_counts | tojson | safe }},
+                        data: trendCounts,
                         borderColor: '#0d6efd',
                         backgroundColor: 'rgba(13, 110, 253, 0.05)',
                         tension: 0.4,

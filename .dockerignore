@@ -1,6 +1,41 @@
+# Sanal ortamlar
 .venv/
 venv/
 __pycache__/
-*.db
-uploads/
+*.pyc
+*.pyo
+
+# IDE / Editör
 .idea/
+.vscode/
+*.swp
+*.swo
+.*.swp
+.*.swo
+
+# Sırlar / hassas dosyalar — ASLA image'a kopyalanmasın
+.env
+.env.*
+settings.json
+*.pem
+*.key
+
+# Versiyon kontrol
+.git/
+.gitignore
+
+# Veri/log
+*.db
+*.sqlite3
+*.log
+mailkamp_errors.log
+
+# Kullanıcı yüklemeleri (volume ile mount edilecek)
+uploads/
+
+# Diğer
+.DS_Store
+Thumbs.db
+node_modules/
+dist/
+build/
