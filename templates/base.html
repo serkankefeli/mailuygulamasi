@@ -3,49 +3,25 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-
     <meta name="csrf-token" content="{{ csrf_token() }}">
+    <title>{% block title %}MailKamp{% endblock %} - Kurumsal Panel</title>
 
-    <title>MailKamp Kurumsal Mail Paneli</title>
-    <link rel="icon" type="image/png" href="{{ url_for('static', filename='images/logo.png') }}?v=2">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <style>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
 
-        body { background-color: #f4f7f6; font-family: 'Segoe UI', Tahoma, sans-serif; }
-        .navbar { background-color: #1a2b3c !important; min-height: 70px; }
-        .nav-link { font-weight: 500; color: #a9b7c6 !important; margin-right: 15px; transition: color 0.2s; }
-        .nav-link:hover, .nav-link.active { color: #f1c40f !important; }
-
-        /* DİNAMİK LOGO STİLİ */
-        .navbar-brand-logo { height: 45px; width: auto; max-width: 180px; object-fit: contain; transition: transform 0.2s; }
-        .navbar-brand:hover .navbar-brand-logo { transform: scale(1.05); }
-
-        .card { border-radius: 12px; border: none; box-shadow: 0 4px 12px rgba(0,0,0,0.05); margin-bottom: 1.5rem; }
-        .card-header { border-bottom: 1px solid #f0f0f0; border-radius: 12px 12px 0 0 !important; padding: 1rem 1.5rem; background-color: #ffffff; }
-        .btn-primary { background-color: #2c3e50; border-color: #2c3e50; }
-        .btn-primary:hover { background-color: #1a252f; border-color: #1a252f; }
-
-        /* CKEditor ve Grafik Alanları İçin Ek Düzenleme */
-        .ck-editor__editable_inline { min-height: 250px; border-radius: 0 0 8px 8px !important; }
-        .stat-card { transition: transform 0.2s; border: none !important; }
-        .stat-card:hover { transform: translateY(-5px); }
-
-        /* Flash Mesaj Animasyonu */
-        .alert { border: none; border-radius: 10px; animation: fadeIn 0.5s; }
-        @keyframes fadeIn { from { opacity: 0; transform: translateY(-10px); } to { opacity: 1; transform: translateY(0); } }
-    </style>
+    {% block head %}{% endblock %}
 </head>
 <body>
 
-<nav class="navbar navbar-expand-lg navbar-dark shadow-sm mb-4">
-  <div class="container-fluid px-4">
-
-    <a class="navbar-brand d-flex align-items-center me-5" href="/dashboard">
-        <img src="{{ url_for('static', filename='images/logo.png') }}?v=2"
-             alt="EST Yazılım"
-             class="navbar-brand-logo">
+<nav class="navbar navbar-expand-lg sticky-top mb-4">
+  <div class="container">
+    <a class="navbar-brand d-flex align-items-center" href="/dashboard">
+        <img src="{{ url_for('static', filename='images/logo.png') }}?v=2" alt="MailKamp" class="navbar-brand-logo">
     </a>
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#mainMenu">
@@ -53,69 +29,81 @@
     </button>
 
     <div class="collapse navbar-collapse" id="mainMenu">
-      <ul class="navbar-nav me-auto mb-2 mb-lg-0">
+      <ul class="navbar-nav mx-auto mb-2 mb-lg-0 gap-1">
         <li class="nav-item">
-            <a class="nav-link {% if request.path == '/dashboard' %}active text-warning{% endif %}" href="/dashboard">
-                <i class="fa-solid fa-chart-line me-1"></i> Ana Panel
+            <a class="nav-link {% if 'dashboard' in request.path %}active{% endif %}" href="/dashboard">
+                <i class="fa-solid fa-grid-2 me-1"></i> Dashboard
             </a>
         </li>
-        <li class="nav-item">
-            <a class="nav-link {% if request.path == '/contacts' %}active text-warning{% endif %}" href="/contacts">
-                <i class="fa-solid fa-address-book me-1"></i> Rehber Yönetimi
-            </a>
-        </li>
-        <li class="nav-item">
-            <a class="nav-link {% if request.path == '/reports' %}active text-warning{% endif %}" href="/reports">
-                <i class="fa-solid fa-file-contract me-1"></i> Raporlar
-            </a>
-        </li>
-        <li class="nav-item">
-            <a class="nav-link {% if request.path == '/settings_page' %}active text-warning{% endif %}" href="/settings_page">
-                <i class="fa-solid fa-gears me-1"></i> Ayarlar
-            </a>
-        </li>
+        <li class="nav-item"><a class="nav-link {% if 'contacts' in request.path %}active{% endif %}" href="/contacts">Rehber</a></li>
+        <li class="nav-item"><a class="nav-link {% if 'reports' in request.path %}active{% endif %}" href="/reports">Raporlar</a></li>
+        <li class="nav-item"><a class="nav-link {% if 'settings' in request.path %}active{% endif %}" href="/settings_page">Ayarlar</a></li>
       </ul>
 
       <div class="d-flex align-items-center gap-3">
-          <span class="text-light small d-none d-md-inline">Hoş Geldin, <b class="text-warning">{{ current_user.ad_soyad }}</b></span>
 
-          {% if current_user.is_admin == 1 %}
-            <a href="/admin/users" class="btn btn-danger btn-sm fw-bold shadow-sm">
-                <i class="fa-solid fa-users-gear me-1"></i> Müşteri Yönetimi
-            </a>
+          {% if current_user.is_authenticated and current_user.is_admin == 1 %}
+          <ul class="navbar-nav mb-0 align-items-center">
+              <li class="mk-admin-menu">
+                  <a href="#" class="mk-admin-link">
+                      <i class="fa-solid fa-shield-halved"></i> Admin Panel
+                  </a>
+                  <ul class="mk-admin-dropdown">
+                        <li>
+                            <a href="{{ url_for('admin.admin_users') }}">
+                                <i class="fa-solid fa-users-gear"></i> Kullanıcı Yönetimi
+                            </a>
+                        </li>
+                        <li>
+                            <a href="{{ url_for('admin.admin_rehberler') }}">
+                                <i class="fa-solid fa-address-book"></i> Müşteri Rehberleri
+                            </a>
+                        </li>
+                        <li>
+                            <a href="{{ url_for('admin.payment_management') }}">
+                                <i class="fa-solid fa-credit-card"></i> Ödeme Talepleri
+                            </a>
+                        </li>
+                        <li>
+                            <a href="{{ url_for('admin.admin_legal_edit') }}">
+                                <i class="fa-solid fa-file-signature"></i> Sözleşmeleri Düzenle
+                            </a>
+                        </li>
+                        <li>
+                            <a href="{{ url_for('admin.admin_site_settings') }}">
+                                <i class="fa-solid fa-sliders"></i> Sistem Ayarları
+                            </a>
+                        </li>
+                    </ul>
+              </li>
+          </ul>
           {% endif %}
-          {% if current_user.is_authenticated and current_user.plan_type == 'free' and current_user.is_admin != 1 %}
-        <li class="nav-item ms-2">
-                <a class="btn btn-warning btn-sm fw-bold text-dark d-flex align-items-center mt-1 px-3 shadow-sm" href="{{ url_for('upgrade') }}">
-                <i class="fas fa-crown me-2"></i> PRO'ya Geç
-                </a>
-        </li>
-            {% endif %}
-      {% if current_user.is_admin %}
-<li class="nav-item">
-    <a class="nav-link" href="{{ url_for('admin_legal_edit') }}">
-        <i class="fas fa-file-contract"></i>
-        <span>Sözleşme Düzenle</span>
-    </a>
-</li>
-{% endif %}
 
-          <div class="btn-group">
-              <a href="/profile" class="btn btn-outline-light btn-sm"><i class="fa-solid fa-user-pen"></i></a>
-              <a href="/logout" class="btn btn-warning btn-sm fw-bold"><i class="fa-solid fa-right-from-bracket"></i> Çıkış</a>
+          {% if current_user.is_authenticated %}
+          <div class="dropdown">
+            <button class="btn btn-light dropdown-toggle border-0" type="button" data-bs-toggle="dropdown">
+                <span class="fw-bold">{{ current_user.ad_soyad }}</span>
+            </button>
+            <ul class="dropdown-menu dropdown-menu-end shadow border-0 mt-2">
+                <li><a class="dropdown-item" href="/profile"><i class="fa-solid fa-user me-2 text-muted"></i> Profil</a></li>
+                <li><hr class="dropdown-divider"></li>
+                <li><a class="dropdown-item text-danger" href="/logout"><i class="fa-solid fa-sign-out me-2"></i> Çıkış Yap</a></li>
+            </ul>
           </div>
+          {% endif %}
+
       </div>
     </div>
   </div>
 </nav>
 
-<div class="container-fluid px-4">
+<div class="container">
     {% with messages = get_flashed_messages(with_categories=true) %}
       {% if messages %}
         {% for category, message in messages %}
-          <div class="alert alert-{{ category if category != 'message' else 'info' }} alert-dismissible fade show shadow-sm" role="alert">
+          <div class="alert alert-{{ category if category != 'message' else 'info' }} border-0 shadow-sm rounded-4 alert-dismissible fade show" role="alert">
             {{ message }}
-            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Kapat"></button>
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
           </div>
         {% endfor %}
       {% endif %}
@@ -124,59 +112,16 @@
     {% block content %}{% endblock %}
 </div>
 
-<footer class="footer mt-auto py-3 bg-white border-top text-center mt-5">
-    <div class="container">
-        <span class="text-muted small fw-bold">© {{ now.year if now else '2026' }} MailKamp</span>
-    </div>
+<footer class="py-4 mt-5 text-center text-muted border-top bg-white">
+    <small>© 2026 <b>MailKamp</b> - EST Yazılım Teknolojileri</small>
 </footer>
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
-<script src="https://cdn.ckeditor.com/ckeditor5/39.0.1/classic/ckeditor.js"></script>
 {% block scripts %}{% endblock %}
-<a href="https://wa.me/905370254961?text=Merhaba,%20MailKamp%20hakkında%20destek%20almak%20istiyorum."
-   class="whatsapp-float"
-   target="_blank"
-   rel="noopener noreferrer"
-   title="WhatsApp Destek Hattı">
+
+<a href="https://wa.me/905370254961" class="whatsapp-float" target="_blank" aria-label="WhatsApp Destek">
     <i class="fab fa-whatsapp"></i>
 </a>
 
-<style>
-.whatsapp-float {
-    position: fixed;
-    width: 60px;
-    height: 60px;
-    bottom: 40px;
-    right: 40px;
-    background-color: #25d366;
-    color: #FFF;
-    border-radius: 50px;
-    text-align: center;
-    font-size: 30px;
-    box-shadow: 2px 2px 12px rgba(0,0,0,0.2);
-    z-index: 9999;
-    transition: all 0.3s ease;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    text-decoration: none;
-    /* Animasyon ekledik: */
-    animation: pulse-green 2s infinite;
-}
-
-@keyframes pulse-green {
-    0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(37, 211, 102, 0.7); }
-    70% { transform: scale(1); box-shadow: 0 0 0 10px rgba(37, 211, 102, 0); }
-    100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(37, 211, 102, 0); }
-}
-
-.whatsapp-float:hover {
-    background-color: #128C7E;
-    color: #FFF;
-    transform: scale(1.1) !important;
-    box-shadow: 2px 2px 15px rgba(37,211,102,0.5);
-    animation: none; /* Üzerine gelince titremeyi durdurur */
-}
-</style>
 </body>
 </html>

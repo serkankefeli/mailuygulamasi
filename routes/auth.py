@@ -14,8 +14,9 @@ from models import User
 # Blueprint'i tanımlıyoruz
 auth_bp = Blueprint('auth', __name__)
 
+
 @auth_bp.route('/login', methods=['GET', 'POST'])
-@limiter.limit("10 per minute; 60 per hour", methods=["POST"])
+@limiter.limit("60 per minute; 10 per hour", methods=["POST"])
 def login():
     if current_user.is_authenticated:
         if getattr(current_user, 'is_admin', 0) == 1:
@@ -25,35 +26,54 @@ def login():
     if request.method == 'POST':
         email = request.form['email'].strip().lower()
         password = request.form['password']
+
         conn = sqlite3.connect(DB_NAME)
         cursor = conn.cursor()
+
+        # Kullanıcıyı e-postasına göre çek
         try:
-            cursor.execute("SELECT id, ad_soyad, password_hash, is_admin, email, is_blocked, plan_type FROM users WHERE email = ?", (email,))
+            cursor.execute(
+                "SELECT id, ad_soyad, password_hash, is_admin, email, is_blocked, plan_type FROM users WHERE email = ?",
+                (email,))
         except Exception:
             cursor.execute("SELECT id, ad_soyad, password_hash, is_admin, email FROM users WHERE email = ?", (email,))
-
         user_data = cursor.fetchone()
 
+        # Şifre Doğruysa
         if user_data and check_password_hash(user_data[2], password):
             is_admin = user_data[3]
+
+            # Eğer Adminsense, buradan giremezsiniz (Gizli Kapıya Gitmeli)
             if is_admin == 1:
                 conn.close()
                 flash('Güvenlik İhlali: Yönetici hesapları bu portaldan oturum açamaz!', 'danger')
                 return redirect(url_for('auth.login'))
 
+            # Eğer müşteri bloklanmışsa
             is_blocked = user_data[5] if len(user_data) > 5 and user_data[5] is not None else 0
             if is_blocked == 1:
                 conn.close()
                 flash('Hesabınız yönetici tarafından engellenmiştir. Sisteme giriş yapamazsınız.', 'danger')
                 return redirect(url_for('auth.login'))
 
+            # MÜŞTERİ İÇİN DİREKT GİRİŞ (2FA YOK)
             plan_type = user_data[6] if len(user_data) > 6 and user_data[6] is not None else 'free'
-            login_user(User(id=user_data[0], ad_soyad=user_data[1], is_admin=is_admin, email=user_data[4], is_blocked=is_blocked, plan_type=plan_type))
+
+            # Flask-Login ile oturumu aç
+            login_user(User(id=user_data[0], ad_soyad=user_data[1], is_admin=is_admin, email=user_data[4],
+                            is_blocked=is_blocked, plan_type=plan_type))
             conn.close()
+
+            # Varsa Session'daki 2FA kalıntılarını temizle
+            session.pop('temp_user_email', None)
+
+            # Doğruca Dashboard'a yolla
             return redirect(url_for('main.dashboard'))
+
         else:
+            # Şifre Yanlışsa
             conn.close()
-            flash('Hatalı giriş!', 'danger')
+            flash('Hatalı e-posta veya şifre!', 'danger')
 
     return render_template('login.html')
 
@@ -183,3 +203,31 @@ def profile():
         flash('Profil güncellendi.', 'success')
         return redirect(url_for('auth.profile'))
     return render_template('profile.html')
+
+
+@auth_bp.route('/verify-2fa', methods=['GET', 'POST'])
+def verify_2fa():
+    email = session.get('temp_user_email')
+    if not email: return redirect(url_for('auth.login'))
+
+    if request.method == 'POST':
+        code = request.form['code'].strip()
+        conn = sqlite3.connect(DB_NAME)
+        u = conn.execute(
+            "SELECT id, ad_soyad, is_admin, email, is_blocked, plan_type, auth_code FROM users WHERE email = ?",
+            (email,)).fetchone()
+
+        if u and str(u[6]) == str(code):
+            # Kod doğru! Asıl girişi ŞİMDİ yapıyoruz
+            conn.execute("UPDATE users SET auth_code = NULL WHERE id = ?", (u[0],))
+            conn.commit()
+            conn.close()
+
+            plan_type = u[5] if u[5] is not None else 'free'
+            login_user(User(id=u[0], ad_soyad=u[1], is_admin=u[2], email=u[3], is_blocked=u[4], plan_type=plan_type))
+            session.pop('temp_user_email', None)
+            return redirect(url_for('main.dashboard'))
+
+        conn.close()
+        flash('Geçersiz kod!', 'danger')
+    return render_template('verify_2fa.html')

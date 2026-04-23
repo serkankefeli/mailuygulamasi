@@ -1,124 +1,130 @@
-{% extends 'base.html' %}
+{% extends "base.html" %}
+{% block title %}Rehber Yönetimi{% endblock %}
 
 {% block content %}
-<div class="row">
-    <div class="col-lg-4">
-
-        <div class="card shadow-sm mb-4 border-0">
-            <div class="card-header bg-white py-3 border-bottom">
-                <h6 class="mb-0 fw-bold text-dark"><i class="fa-solid fa-layer-group text-warning me-2"></i>Grup Yönetimi</h6>
+<div class="row g-4">
+    <div class="col-md-4">
+        <div class="card shadow-sm border-0 mb-4">
+            <div class="card-header bg-white py-3">
+                <h6 class="mb-0 fw-bold"><i class="fa-solid fa-folder-plus me-2 text-primary"></i>Grup Ekle</h6>
             </div>
             <div class="card-body">
-                <form action="/add_group" method="POST" class="mb-4">
-
-                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
-
+                <form action="{{ url_for('main.add_group') }}" method="POST">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                     <div class="input-group">
-                        <input type="text" name="group_name" class="form-control" placeholder="Örn: VIP Müşteriler" required>
-                        <button class="btn btn-dark" type="submit"><i class="fa-solid fa-plus me-1"></i> Ekle</button>
+                        <input type="text" name="group_name" class="form-control bg-light border-0" placeholder="Grup adı..." required>
+                        <button type="submit" class="btn btn-primary"><i class="fa-solid fa-plus"></i></button>
                     </div>
                 </form>
-
-                <h6 class="text-muted small fw-bold mb-3 border-bottom pb-2">Mevcut Gruplar</h6>
-                {% if groups %}
-                    <ul class="list-group list-group-flush">
-                    {% for group in groups %}
-                        <li class="list-group-item d-flex justify-content-between align-items-center px-2 py-2">
-                            <span class="text-dark fw-medium"><i class="fa-solid fa-folder text-secondary me-2"></i>{{ group.1 }}</span>
-                            <form action="/delete_group/{{ group.0 }}" method="POST" class="m-0" onsubmit="return confirm('{{ group.1 }} grubunu silmek istediğinize emin misiniz?\n\n(DİKKAT: İçindeki kişiler silinmez, sadece bu gruptan çıkarılırlar.)');">
-
-                                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
-
-                                <button type="submit" class="btn btn-sm btn-outline-danger border-0" title="Grubu Sil">
-                                    <i class="fa-solid fa-trash"></i>
-                                </button>
-                            </form>
-                        </li>
-                    {% endfor %}
-                    </ul>
-                {% else %}
-                    <div class="alert alert-light border border-dashed text-center small py-3 text-muted mb-0">
-                        Henüz bir grup oluşturmadınız.
-                    </div>
-                {% endif %}
             </div>
         </div>
 
-        <div class="card shadow-sm mb-4 border-info">
-            <div class="card-body bg-light rounded">
-                <h6 class="text-info fw-bold mb-3"><i class="fa-solid fa-file-excel me-2"></i>Excel ile Toplu Yükleme</h6>
-                <form action="/import_contacts" method="POST" enctype="multipart/form-data">
-
-                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
-
-                    <div class="mb-3">
-                        <input class="form-control form-control-sm" type="file" name="excel_file" accept=".xlsx, .xls" required>
-                    </div>
-                    <button type="submit" class="btn btn-info btn-sm text-white fw-bold w-100 mb-3 shadow-sm">
-                        <i class="fa-solid fa-cloud-arrow-up me-1"></i> Dosyayı Yükle
-                    </button>
-                </form>
-
-                <div class="border-top pt-3 mt-2 border-info border-opacity-25">
-                    <p class="small text-muted mb-2"><strong>Yükleme Rehberi:</strong> Excel'in ilk satırı şu başlıkları içermelidir:</p>
-                    <table class="table table-sm table-bordered bg-white text-center small mb-3">
-                        <thead class="table-light"><tr><th>Ad</th><th>Email</th><th>Grup</th></tr></thead>
-                        <tbody><tr><td>Ali Yılmaz</td><td>ali@mail.com</td><td>Bayiler</td></tr></tbody>
-                    </table>
-                    <a href="{{ url_for('static', filename='assets/mailkamp_ornek_rehber.xlsx') }}" class="btn btn-outline-info btn-sm fw-bold w-100 bg-white">
-                        <i class="fa-solid fa-download me-1"></i> Örnek Şablonu İndir
-                    </a>
+        <div class="card shadow-sm border-0">
+            <div class="card-header bg-white py-3">
+                <h6 class="mb-0 fw-bold"><i class="fa-solid fa-tags me-2 text-info"></i>Gruplarım</h6>
+            </div>
+            <div class="list-group list-group-flush">
+                {% for g in groups %}
+                <div class="list-group-item d-flex justify-content-between align-items-center">
+                    <span><i class="fa-solid fa-folder me-2 text-warning"></i>{{ g[1] }}</span>
+                    <form action="{{ url_for('main.delete_group', group_id=g[0]) }}" method="POST">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                        <button type="submit" class="btn btn-link text-danger p-0 border-0"><i class="fa-solid fa-trash-can"></i></button>
+                    </form>
                 </div>
+                {% else %}
+                <div class="p-4 text-center text-muted">Henüz grup yok.</div>
+                {% endfor %}
             </div>
         </div>
     </div>
 
-    <div class="col-lg-8">
-        <div class="card shadow-sm mb-4 border-0">
-            <div class="card-header bg-white py-3 border-bottom d-flex justify-content-between align-items-center">
-                <h6 class="mb-0 fw-bold text-dark"><i class="fa-solid fa-users text-warning me-2"></i>Rehberdeki Kişiler</h6>
-                <span class="badge bg-secondary">{{ contacts|length }} Kişi</span>
+    <div class="col-md-8">
+
+        <div id="bulkActionContainer" class="mb-3 d-none">
+            <div class="alert alert-primary d-flex justify-content-between align-items-center shadow-sm border-0 rounded-4 py-2 mb-0">
+                <span id="selectedCountText" class="fw-bold text-primary ms-2">0 kişi seçildi</span>
+                <button type="button" onclick="confirmBulkDelete()" class="btn btn-danger btn-sm px-4 rounded-pill shadow-sm">
+                    <i class="fa-solid fa-trash-can me-2"></i> Seçilenleri Sil
+                </button>
             </div>
-            <div class="card-body p-0">
-                <div class="table-responsive" style="max-height: 600px; overflow-y: auto;">
+        </div>
+
+        <div class="card shadow-sm border-0">
+            <div class="card-header bg-white d-flex justify-content-between align-items-center py-3">
+                <h5 class="mb-0 fw-bold"><i class="fa-solid fa-users me-2 text-primary"></i>Kişilerim</h5>
+                <div class="btn-group">
+                    <button class="btn btn-sm btn-success" data-bs-toggle="modal" data-bs-target="#excelModal"><i class="fa-solid fa-file-excel me-1"></i> Excel Yükle</button>
+                </div>
+            </div>
+
+            <form id="bulkDeleteForm" action="{{ url_for('main.bulk_delete_contacts') }}" method="POST">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+                <div class="table-responsive">
                     <table class="table table-hover align-middle mb-0">
-                        <thead class="table-light sticky-top">
+                       <thead class="table-light">
                             <tr>
-                                <th class="ps-4">Ad Soyad</th>
-                                <th>E-Posta Adresi</th>
-                                <th>Bulunduğu Gruplar</th>
+                                <th class="ps-4" style="width: 40px;">
+                                    <input type="checkbox" id="selectAll" class="form-check-input shadow-sm">
+                                </th>
+                                <th>Ad Soyad</th>
+                                <th>E-Posta</th>
+                                <th>Grup</th>
+                                <th class="text-end pe-4">İşlem</th>
                             </tr>
                         </thead>
                         <tbody>
-                            {% if contacts %}
-                                {% for c in contacts %}
-                                <tr>
-                                    <td class="ps-4 fw-medium text-dark">{{ c.name }}</td>
-                                    <td class="text-muted">{{ c.email }}</td>
-                                    <td>
-                                        {% if c.groups %}
-                                            {% for g in c.groups.split(', ') %}
-                                                <span class="badge bg-light text-dark border">{{ g }}</span>
-                                            {% endfor %}
-                                        {% else %}
-                                            <span class="text-muted small fst-italic">Grupsuz</span>
-                                        {% endif %}
-                                    </td>
-                                </tr>
-                                {% endfor %}
+                            {% for c in contacts %}
+                            <tr>
+                                <td class="ps-4">
+                                    <input type="checkbox" name="contact_ids" value="{{ c.id }}" class="form-check-input contact-checkbox shadow-sm">
+                                </td>
+                                <td>
+                                    <div class="d-flex align-items-center">
+                                        <div class="bg-light rounded-circle p-2 me-3 text-primary"><i class="fa-solid fa-user small"></i></div>
+                                        <span class="fw-bold">{{ c.display_name }}</span>
+                                    </div>
+                                </td>
+                                <td>{{ c.email }}</td>
+                                <td><span class="badge bg-light text-dark border">{{ c.groups }}</span></td>
+                                <td class="text-end pe-4">
+                                    <button type="button" onclick="deleteSingle('{{ c.id }}')" class="btn btn-sm btn-outline-danger border-0" title="Kişiyi Sil">
+                                        <i class="fa-solid fa-user-minus"></i>
+                                    </button>
+                                </td>
+                            </tr>
                             {% else %}
-                                <tr>
-                                    <td colspan="3" class="text-center py-5">
-                                        <i class="fa-solid fa-folder-open fa-3x mb-3 text-secondary opacity-25"></i><br>
-                                        <span class="text-muted">Rehberinizde henüz kişi bulunmuyor.<br>Sol taraftan excel ile yükleme yapabilirsiniz.</span>
-                                    </td>
-                                </tr>
-                            {% endif %}
+                            <tr><td colspan="5" class="text-center py-5 text-muted">Rehber boş.</td></tr>
+                            {% endfor %}
                         </tbody>
                     </table>
                 </div>
-            </div>
+            </form>
         </div>
     </div>
 </div>
+
+<div class="modal fade" id="excelModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content border-0 shadow">
+            <form action="{{ url_for('mail.import_contacts') }}" method="POST" enctype="multipart/form-data">
+                <div class="modal-header"><h5 class="modal-title fw-bold">Excel'den Aktar</h5></div>
+                <div class="modal-body">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <div class="mb-3">
+                        <label class="form-label">Dosya Seçin (.xlsx)</label>
+                        <input type="file" name="excel_file" class="form-control" accept=".xlsx, .xls" required>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-light" data-bs-dismiss="modal">Vazgeç</button>
+                    <button type="submit" class="btn btn-success">Yüklemeyi Başlat</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script src="{{ url_for('static', filename='js/contacts.js') }}"></script>
 {% endblock %}

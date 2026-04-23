@@ -1,0 +1,62 @@
+{% extends "base.html" %}
+
+{% block title %}Doğrulama Kodu{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-5">
+        <div class="card shadow-lg border-0 rounded-4 overflow-hidden">
+            <div class="card-body p-5">
+                <div class="text-center mb-4">
+                    <div class="display-6 text-primary mb-3">
+                        <i class="fa-solid fa-shield-lock"></i>
+                    </div>
+                    <h3 class="fw-bold">Güvenlik Doğrulaması</h3>
+                    <p class="text-muted small">
+                        Lütfen <b>{{ session.get('temp_user_email') }}</b> adresine gönderdiğimiz 6 haneli kodu giriniz.
+                    </p>
+                </div>
+
+                <form action="{{ url_for('auth.verify_2fa') }}" method="POST">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+                    <div class="mb-4">
+                        <label class="form-label fw-bold small">Doğrulama Kodu</label>
+                        <input type="text"
+                               name="code"
+                               class="form-control form-control-lg text-center fw-bold letter-spacing-lg border-0 bg-light"
+                               placeholder="000000"
+                               maxlength="6"
+                               required
+                               autofocus>
+                    </div>
+
+                    <button type="submit" class="btn btn-primary w-100 py-3 mb-3 shadow">
+                        Hesabı Doğrula
+                    </button>
+
+                    <div class="text-center">
+                        <a href="{{ url_for('auth.login') }}" class="text-decoration-none small text-muted">
+                            <i class="fa-solid fa-arrow-left me-1"></i> Giriş sayfasına dön
+                        </a>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <div class="text-center mt-4">
+            <p class="text-muted small">Kod ulaşmadı mı? Gereksiz (Spam) kutusunu kontrol etmeyi unutmayın.</p>
+        </div>
+    </div>
+</div>
+
+<style>
+    .letter-spacing-lg {
+        letter-spacing: 0.5rem;
+        font-size: 1.5rem;
+    }
+    .bg-light {
+        background-color: #f8fafc !important;
+    }
+</style>
+{% endblock %}

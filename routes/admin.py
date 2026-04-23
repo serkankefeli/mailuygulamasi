@@ -114,8 +114,18 @@ def admin_users():
     if getattr(current_user, 'is_admin', 0) != 1: return redirect(url_for('main.dashboard'))
     conn = sqlite3.connect(DB_NAME)
     cursor = conn.cursor()
+
+    # Sorguya sözleşme alanlarını ekledik
     query = """
-            SELECT u.id, u.ad_soyad, u.is_admin, u.email, u.is_blocked, u.plan_type, COUNT(l.id) as total_mails
+            SELECT u.id, \
+                   u.ad_soyad, \
+                   u.is_admin, \
+                   u.email, \
+                   u.is_blocked, \
+                   u.plan_type,
+                   COUNT(l.id) as total_mails, \
+                   u.contract_accepted, \
+                   u.contract_accepted_date
             FROM users u
                      LEFT JOIN logs l ON u.id = l.user_id
             GROUP BY u.id
@@ -123,13 +133,16 @@ def admin_users():
             """
     cursor.execute(query)
     all_users = cursor.fetchall()
+
     user_stats = []
     for user in all_users:
         user_stats.append({
             'id': user[0], 'ad_soyad': user[1], 'is_admin': user[2], 'email': user[3],
             'is_blocked': user[4] if user[4] is not None else 0,
             'plan_type': user[5] if user[5] is not None else 'free',
-            'total_mails': user[6]
+            'total_mails': user[6],
+            'contract': user[7],  # 1 veya 0
+            'contract_date': user[8]  # Kabul tarihi
         })
     conn.close()
     return render_template('admin_users.html', users=user_stats)
@@ -241,22 +254,29 @@ def admin_site_settings():
     return render_template('admin_site.html', landing=landing)
 
 
-@admin_bp.route('/admin/legal-edit', methods=['GET', 'POST'])
+@admin_bp.route('/legal-settings', methods=['GET', 'POST'])
 @login_required
 def admin_legal_edit():
-    if not current_user.is_admin: return redirect(url_for('main.dashboard'))
+    if getattr(current_user, 'is_admin', 0) != 1:
+        return redirect(url_for('main.dashboard'))
+
     conn = sqlite3.connect(DB_NAME)
     cursor = conn.cursor()
+
     if request.method == 'POST':
         slug = request.form.get('slug')
-        yeni_baslik = request.form.get('baslik')
-        yeni_icerik = request.form.get('icerik')
-        cursor.execute("UPDATE legal_texts SET baslik = ?, icerik = ? WHERE slug = ?", (yeni_baslik, yeni_icerik, slug))
+        baslik = request.form.get('baslik')
+        icerik = request.form.get('icerik')
+
+        cursor.execute("UPDATE legal_texts SET baslik = ?, icerik = ? WHERE slug = ?", (baslik, icerik, slug))
         conn.commit()
-        flash('Sözleşme başarıyla güncellendi!', 'success')
-    cursor.execute("SELECT * FROM legal_texts")
+        flash(f'"{baslik}" başarıyla güncellendi!', 'success')
+        return redirect(url_for('admin.admin_legal_edit'))
+
+    cursor.execute("SELECT id, slug, baslik, icerik FROM legal_texts")
     texts = cursor.fetchall()
     conn.close()
+
     return render_template('admin_legal_edit.html', texts=texts)
 
 
@@ -297,22 +317,28 @@ def payment_management():
     return render_template('admin_payments.html', talepler=talepler, settings=settings)
 
 
-@admin_bp.route('/admin/approve_upgrade/<int:req_id>', methods=['GET', 'POST'])
+@admin_bp.route('/admin/tum-rehberler')
 @login_required
-def approve_upgrade(req_id):
-    if current_user.is_admin != 1: return redirect(url_for('main.dashboard'))
+def admin_rehberler():
+    if getattr(current_user, 'is_admin', 0) != 1:
+        return redirect(url_for('main.dashboard'))
+
     conn = sqlite3.connect(DB_NAME)
     cursor = conn.cursor()
-    cursor.execute("SELECT user_id FROM upgrade_requests WHERE id=?", (req_id,))
-    row = cursor.fetchone()
-    if row:
-        u_id = row[0]
-        cursor.execute("UPDATE users SET plan_type='pro' WHERE id=?", (u_id,))
-        cursor.execute("UPDATE upgrade_requests SET durum='onaylandi' WHERE id=?", (req_id,))
-        conn.commit()
-        flash('Kullanıcı başarıyla PRO pakete yükseltildi!', 'success')
+
+    cursor.execute("""
+                   SELECT u.id,
+                          g.group_name,
+                          u.ad_soyad,
+                          (SELECT COUNT(*) FROM contact_group_rel WHERE group_id = g.id)
+                   FROM groups g
+                            JOIN users u ON g.user_id = u.id
+                   ORDER BY u.id ASC
+                   """)
+    gruplar = cursor.fetchall()
     conn.close()
-    return redirect(url_for('admin.payment_management'))
+
+    return render_template('admin_rehberler.html', gruplar=gruplar)
 
 
 @admin_bp.route('/admin/reject_upgrade/<int:req_id>', methods=['GET', 'POST'])

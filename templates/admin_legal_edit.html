@@ -1,16 +1,20 @@
 {% extends "base.html" %}
+
+{% block title %}Sözleşme Düzenleme{% endblock %}
+
 {% block content %}
 <div class="container mt-5">
     <div class="card shadow border-0">
-        <div class="card-header bg-dark text-white d-flex justify-content-between align-items-center">
-            <h4 class="mb-0"><i class="fas fa-file-contract me-2"></i> Sözleşme Düzenleme Merkezi</h4>
-            <a href="{{ url_for('dashboard') }}" class="btn btn-sm btn-outline-light">Panele Dön</a>
+        <div class="card-header bg-dark text-white d-flex justify-content-between align-items-center py-3">
+            <h5 class="mb-0 fw-bold"><i class="fas fa-file-contract me-2"></i> Sözleşme Düzenleme Merkezi</h5>
+            <a href="{{ url_for('main.dashboard') }}" class="btn btn-sm btn-outline-light"><i class="fa-solid fa-arrow-left me-1"></i> Panele Dön</a>
         </div>
-        <div class="card-body">
+        <div class="card-body p-4">
+
             <ul class="nav nav-pills mb-4" id="pills-tab" role="tablist">
                 {% for text in texts %}
                 <li class="nav-item" role="presentation">
-                    <button class="nav-link {% if loop.first %}active{% endif %}" data-bs-toggle="pill"
+                    <button class="nav-link {% if loop.first %}active{% endif %} fw-medium px-4" data-bs-toggle="pill"
                             data-bs-target="#tab-{{ text[1] }}" type="button">{{ text[2] }}</button>
                 </li>
                 {% endfor %}
@@ -19,35 +23,42 @@
             <div class="tab-content" id="pills-tabContent">
                 {% for text in texts %}
                 <div class="tab-pane fade {% if loop.first %}show active{% endif %}" id="tab-{{ text[1] }}">
-                    <form action="{{ url_for('admin_legal_edit') }}" method="POST">
 
+                    <form action="{{ url_for('admin.admin_legal_edit') }}" method="POST" id="form-{{ text[1] }}">
                         <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
-
                         <input type="hidden" name="slug" value="{{ text[1] }}">
 
-                        <div class="mb-3">
-                            <label class="form-label fw-bold">Sözleşme Başlığı</label>
-                            <input type="text" name="baslik" class="form-control" value="{{ text[2] }}" required>
+                        <div class="mb-4">
+                            <label class="form-label fw-bold text-muted mb-2">Sözleşme Başlığı</label>
+                            <input type="text" name="baslik" class="form-control form-control-lg bg-light border-0" value="{{ text[2] }}" required>
                         </div>
 
-                        <div class="mb-3">
-                            <label class="form-label fw-bold">Sözleşme İçeriği (HTML Kullanabilirsiniz)</label>
-                            <textarea name="icerik" class="form-control" rows="15" required>{{ text[3] }}</textarea>
-                            <div class="form-text mt-2 text-muted">
-                                <i class="fas fa-info-circle me-1"></i> Kalın yazı için <b>&lt;b&gt;metin&lt;/b&gt;</b>, yeni satır için <b>&lt;br&gt;</b> kullanabilirsiniz.
+                        <div class="mb-4">
+                            <label class="form-label fw-bold text-muted mb-2">Sözleşme İçeriği</label>
+                            <div class="border rounded overflow-hidden">
+                                <div class="mk-quill-editor" data-slug="{{ text[1] }}" style="height: 400px; font-size: 15px; background: #fff;">{{ text[3]|safe }}</div>
                             </div>
+                            <input type="hidden" name="icerik" id="input-{{ text[1] }}">
                         </div>
 
                         <div class="d-grid">
-                            <button type="submit" class="btn btn-primary btn-lg">
-                                <i class="fas fa-save me-2"></i> {{ text[2] }} Güncellemesini Kaydet
+                            <button type="submit" class="btn btn-primary btn-lg shadow-sm">
+                                <i class="fas fa-save me-2"></i> {{ text[2] }} Değişikliklerini Kaydet
                             </button>
                         </div>
                     </form>
+
                 </div>
                 {% endfor %}
             </div>
+
         </div>
     </div>
 </div>
+{% endblock %}
+
+{% block scripts %}
+<link href="https://cdn.quilljs.com/1.3.6/quill.snow.css" rel="stylesheet">
+<script src="https://cdn.quilljs.com/1.3.6/quill.min.js"></script>
+<script src="{{ url_for('static', filename='assets/js/admin_legal.js') }}"></script>
 {% endblock %}

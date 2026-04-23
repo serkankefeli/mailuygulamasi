@@ -1,0 +1,170 @@
+/* =========================================
+   MAILKAMP - MERKEZİ TASARIM DOSYASI (style.css)
+   ========================================= */
+
+:root {
+    --mk-primary: #6366f1; /* Indigo SaaS Rengi */
+    --mk-dark: #0f172a;
+    --mk-bg: #f8fafc;
+    --mk-card-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+}
+
+body {
+    background-color: var(--mk-bg);
+    font-family: 'Plus Jakarta Sans', sans-serif;
+    color: #334155;
+}
+
+/* --- MODERN NAVBAR --- */
+.navbar {
+    background-color: rgba(255, 255, 255, 0.9) !important;
+    backdrop-filter: blur(10px);
+    border-bottom: 1px solid #e2e8f0;
+    min-height: 70px;
+}
+
+.nav-link {
+    font-weight: 500;
+    color: #64748b !important;
+    transition: all 0.3s;
+    padding: 0.5rem 1rem !important;
+    border-radius: 8px;
+}
+
+.nav-link:hover, .nav-link.active {
+    color: var(--mk-primary) !important;
+    background-color: #f1f5f9;
+}
+
+.navbar-brand-logo {
+    height: 38px;
+    width: auto;
+    filter: grayscale(1) brightness(0.5);
+}
+
+/* --- ÖZEL ADMİN MENÜSÜ --- */
+.mk-admin-menu {
+    position: relative;
+    list-style: none;
+    display: inline-block;
+    margin: 0;
+    padding: 0;
+}
+
+.mk-admin-link {
+    color: #e74c3c;
+    font-weight: 700;
+    text-decoration: none;
+    padding: 8px 15px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    cursor: pointer;
+    border-radius: 8px;
+    transition: background-color 0.2s;
+}
+
+.mk-admin-link:hover {
+    background-color: #fdf2f2;
+}
+
+.mk-admin-dropdown {
+    display: none;
+    position: absolute;
+    right: 0;
+    top: 100%;
+    background-color: #ffffff;
+    min-width: 220px;
+    box-shadow: 0 10px 25px rgba(0,0,0,0.1);
+    border-radius: 8px;
+    border: 1px solid #eee;
+    padding: 10px 0;
+    margin: 0;
+    list-style: none;
+    z-index: 1000;
+}
+
+.mk-admin-menu:hover .mk-admin-dropdown {
+    display: block;
+    animation: fadeInDown 0.2s ease-out;
+}
+
+.mk-admin-dropdown li a {
+    color: #333333;
+    padding: 12px 20px;
+    text-decoration: none;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    font-size: 14px;
+    transition: background-color 0.2s ease;
+}
+
+.mk-admin-dropdown li a:hover {
+    background-color: #f4f7f6;
+    color: var(--mk-primary);
+}
+
+@keyframes fadeInDown {
+    from { opacity: 0; transform: translateY(-10px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+/* --- SAAS CARD & BİLEŞENLER --- */
+.card {
+    border-radius: 16px;
+    border: 1px solid #e2e8f0;
+    box-shadow: var(--mk-card-shadow);
+    transition: transform 0.2s;
+}
+
+.btn-primary {
+    background-color: var(--mk-primary);
+    border: none;
+    padding: 0.6rem 1.2rem;
+    border-radius: 10px;
+    font-weight: 600;
+}
+
+.btn-primary:hover {
+    background-color: #4f46e5;
+    transform: translateY(-1px);
+}
+
+/* --- WHATSAPP BUTONU --- */
+.whatsapp-float {
+    position: fixed;
+    width: 55px;
+    height: 55px;
+    bottom: 30px;
+    right: 30px;
+    background-color: #25d366;
+    color: #FFF;
+    border-radius: 50px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 26px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+    z-index: 9999;
+    text-decoration: none;
+    transition: 0.3s;
+}
+
+.whatsapp-float:hover {
+    transform: scale(1.1);
+    color: white;
+}
+
+/* --- SÖZLEŞME VE EDİTÖR DÜZELTMELERİ --- */
+.ql-toolbar.ql-snow { background-color: #f8f9fa; border: none; border-bottom: 1px solid #dee2e6; }
+.ql-container.ql-snow { border: none; }
+
+.nav-pills .nav-link.active {
+    background-color: var(--mk-primary) !important;
+    color: #ffffff !important;
+}
+
+.nav-pills .nav-link:not(.active) {
+    color: #64748b !important;
+}

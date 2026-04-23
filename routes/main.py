@@ -1,5 +1,5 @@
 from flask import Blueprint, render_template, request, redirect, url_for, flash, current_app, jsonify, \
-    send_from_directory
+    send_from_directory, session
 from flask_login import login_required, current_user
 from werkzeug.utils import secure_filename
 import sqlite3
@@ -56,6 +56,7 @@ def is_safe_webhook_url(url):
 # --- ROTALAR ---
 @main_bp.route('/')
 def index():
+    if 'temp_user_email' in session: return redirect(url_for('auth.verify_2fa'))
     if current_user.is_authenticated: return redirect(url_for('main.dashboard'))
     conn = sqlite3.connect(DB_NAME)
     cursor = conn.cursor()
@@ -68,6 +69,7 @@ def index():
 @main_bp.route('/dashboard')
 @login_required
 def dashboard():
+    if 'temp_user_email' in session: return redirect(url_for('auth.verify_2fa'))
     conn = sqlite3.connect(DB_NAME)
     cursor = conn.cursor()
     cursor.execute("SELECT id, group_name FROM groups WHERE user_id=?", (current_user.id,))
@@ -108,6 +110,7 @@ def dashboard():
 @main_bp.route('/reports')
 @login_required
 def reports():
+    if 'temp_user_email' in session: return redirect(url_for('auth.verify_2fa'))
     conn = sqlite3.connect(DB_NAME)
     cursor = conn.cursor()
     cursor.execute("SELECT * FROM logs WHERE user_id=? ORDER BY id DESC LIMIT 100", (current_user.id,))
@@ -119,6 +122,7 @@ def reports():
 @main_bp.route('/settings_page')
 @login_required
 def settings_page():
+    if 'temp_user_email' in session: return redirect(url_for('auth.verify_2fa'))
     conn = sqlite3.connect(DB_NAME)
     cursor = conn.cursor()
     cursor.execute("SELECT * FROM settings WHERE user_id=?", (current_user.id,))
@@ -139,14 +143,32 @@ def settings_page():
 @main_bp.route('/contacts')
 @login_required
 def contacts():
+    if 'temp_user_email' in session: return redirect(url_for('auth.verify_2fa'))
+
     conn = sqlite3.connect(DB_NAME)
     cursor = conn.cursor()
-    cursor.execute("SELECT id, group_name FROM groups WHERE user_id=?", (current_user.id,))
+
+    # 1. SAĞDAKİ TABLO İÇİN: Grup isimlerinin başına "KullanıcıID - " ekliyoruz
+    cursor.execute("""
+                   SELECT c.name,
+                          c.email,
+                          IFNULL(GROUP_CONCAT(c.user_id || ' - ' || g.group_name, ', '), 'Grup Yok'),
+                          c.id
+                   FROM contacts c
+                            LEFT JOIN contact_group_rel cgr ON c.id = cgr.contact_id
+                            LEFT JOIN groups g ON cgr.group_id = g.id
+                   WHERE c.user_id = ?
+                   GROUP BY c.id
+                   ORDER BY c.id DESC
+                   """, (current_user.id,))
+
+    contact_list = [{'display_name': row[0], 'email': row[1], 'groups': row[2], 'id': row[3]} for row in
+                    cursor.fetchall()]
+
+    # 2. SOLDAKİ MENÜ İÇİN: Grup isimlerinin başına "KullanıcıID - " ekliyoruz
+    cursor.execute("SELECT id, user_id || ' - ' || group_name FROM groups WHERE user_id=?", (current_user.id,))
     groups = cursor.fetchall()
-    cursor.execute(
-        "SELECT c.id, c.name, c.email, IFNULL(GROUP_CONCAT(g.group_name, ', '), '') as groups FROM contacts c LEFT JOIN contact_group_rel cgr ON c.id = cgr.contact_id LEFT JOIN groups g ON cgr.group_id = g.id WHERE c.user_id = ? GROUP BY c.id",
-        (current_user.id,))
-    contact_list = [{'id': row[0], 'name': row[1], 'email': row[2], 'groups': row[3]} for row in cursor.fetchall()]
+
     conn.close()
     return render_template('contacts.html', groups=groups, contacts=contact_list)
 
@@ -154,6 +176,7 @@ def contacts():
 @main_bp.route('/add_group', methods=['POST'])
 @login_required
 def add_group():
+    if 'temp_user_email' in session: return redirect(url_for('auth.verify_2fa'))
     group_name = request.form.get('group_name')
     if group_name:
         conn = sqlite3.connect(DB_NAME)
@@ -173,6 +196,7 @@ def add_group():
 @main_bp.route('/delete_group/<int:group_id>', methods=['POST'])
 @login_required
 def delete_group(group_id):
+    if 'temp_user_email' in session: return redirect(url_for('auth.verify_2fa'))
     conn = sqlite3.connect(DB_NAME)
     cursor = conn.cursor()
     cursor.execute("DELETE FROM groups WHERE id=? AND user_id=?", (group_id, current_user.id))
@@ -186,6 +210,7 @@ def delete_group(group_id):
 @main_bp.route('/save_settings', methods=['POST'])
 @login_required
 def save_settings():
+    if 'temp_user_email' in session: return redirect(url_for('auth.verify_2fa'))
     host, port = request.form['smtp_host'].strip(), request.form['smtp_port'].strip()
     user_email, password_plain = request.form['smtp_user'].strip(), request.form['smtp_pass'].strip()
     webhook_url = request.form.get('webhook_url', '').strip()
@@ -227,6 +252,7 @@ def save_settings():
 @main_bp.route('/add_blacklist', methods=['POST'])
 @login_required
 def add_blacklist():
+    if 'temp_user_email' in session: return redirect(url_for('auth.verify_2fa'))
     email = request.form.get('blacklist_emails')
     if email and "@" in email:
         conn = sqlite3.connect(DB_NAME)
@@ -246,12 +272,34 @@ def add_blacklist():
 @main_bp.route('/remove_blacklist/<int:id>', methods=['POST'])
 @login_required
 def remove_blacklist(id):
+    if 'temp_user_email' in session: return redirect(url_for('auth.verify_2fa'))
     conn = sqlite3.connect(DB_NAME)
     cursor = conn.cursor()
     cursor.execute("DELETE FROM blacklist WHERE id=? AND user_id=?", (id, current_user.id))
     conn.commit()
     conn.close()
     return redirect(url_for('main.settings_page'))
+
+@main_bp.route('/delete_contact/<int:contact_id>', methods=['POST'])
+@login_required
+def delete_contact(contact_id):
+    conn = sqlite3.connect(DB_NAME)
+    cursor = conn.cursor()
+
+    # Önce güvenlik: Bu kişi gerçekten bu müşteriye mi ait?
+    cursor.execute("SELECT id FROM contacts WHERE id = ? AND user_id = ?", (contact_id, current_user.id))
+    if cursor.fetchone():
+        # 1. Kişiyi gruptan kopar (İlişki tablosundan sil)
+        cursor.execute("DELETE FROM contact_group_rel WHERE contact_id = ?", (contact_id,))
+        # 2. Kişiyi tamamen rehberden sil
+        cursor.execute("DELETE FROM contacts WHERE id = ?", (contact_id,))
+        conn.commit()
+        flash('Kişi rehberden başarıyla silindi.', 'success')
+    else:
+        flash('Bu işlemi yapmaya yetkiniz yok veya kişi bulunamadı!', 'danger')
+
+    conn.close()
+    return redirect(url_for('main.contacts'))
 
 
 @main_bp.route('/upload_logo', methods=['POST'])
@@ -273,10 +321,45 @@ def upload_logo():
     return redirect(request.referrer)
 
 
+@main_bp.route('/bulk_delete_contacts', methods=['POST'])
+@login_required
+def bulk_delete_contacts():
+    # Formdan seçilen ID listesini al
+    contact_ids = request.form.getlist('contact_ids')
+
+    if not contact_ids:
+        flash('Lütfen silinecek kişileri seçin.', 'warning')
+        return redirect(url_for('main.contacts'))
+
+    conn = sqlite3.connect(DB_NAME)
+    cursor = conn.cursor()
+
+    try:
+        # Güvenlik: Sadece mevcut kullanıcıya ait olan ID'leri sil
+        placeholders = ', '.join(['?'] * len(contact_ids))
+
+        # 1. Önce grup ilişkilerini sil
+        cursor.execute(f"DELETE FROM contact_group_rel WHERE contact_id IN ({placeholders})", contact_ids)
+
+        # 2. Sonra kişileri sil (User_id kontrolü ile)
+        cursor.execute(f"DELETE FROM contacts WHERE id IN ({placeholders}) AND user_id = ?",
+                       (*contact_ids, current_user.id))
+
+        conn.commit()
+        flash(f'{len(contact_ids)} kişi başarıyla silindi.', 'success')
+    except Exception as e:
+        conn.rollback()
+        flash('Toplu silme sırasında bir hata oluştu.', 'danger')
+    finally:
+        conn.close()
+
+    return redirect(url_for('main.contacts'))
+
 @main_bp.route('/save_template', methods=['POST'])
 @login_required
 @premium_required
 def save_template():
+    if 'temp_user_email' in session: return redirect(url_for('auth.verify_2fa'))
     name, subject, body = request.form.get('template_name'), request.form.get('subject'), request.form.get('body')
     if name and subject and body:
         conn = sqlite3.connect(DB_NAME)
@@ -292,6 +375,7 @@ def save_template():
 @main_bp.route('/api/get_template/<int:tpl_id>')
 @login_required
 def get_template(tpl_id):
+    if 'temp_user_email' in session: return jsonify({'error': '2FA Required'}), 403
     conn = sqlite3.connect(DB_NAME)
     cursor = conn.cursor()
     cursor.execute("SELECT subject, body FROM templates WHERE id=? AND user_id=?", (tpl_id, current_user.id))
@@ -304,6 +388,7 @@ def get_template(tpl_id):
 @main_bp.route('/delete_template/<int:tpl_id>', methods=['POST'])
 @login_required
 def delete_template(tpl_id):
+    if 'temp_user_email' in session: return redirect(url_for('auth.verify_2fa'))
     conn = sqlite3.connect(DB_NAME)
     cursor = conn.cursor()
     cursor.execute("DELETE FROM templates WHERE id=? AND user_id=?", (tpl_id, current_user.id))
@@ -315,6 +400,7 @@ def delete_template(tpl_id):
 @main_bp.route('/upgrade', methods=['GET', 'POST'])
 @login_required
 def upgrade():
+    if 'temp_user_email' in session: return redirect(url_for('auth.verify_2fa'))
     conn = sqlite3.connect(DB_NAME)
     cursor = conn.cursor()
     if request.method == 'POST':

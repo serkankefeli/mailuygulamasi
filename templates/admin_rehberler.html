@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+
+{% block title %}Tüm Müşteri Rehberleri{% endblock %}
+
+{% block content %}
+<div class="container mt-5">
+    <div class="card shadow border-0">
+        <div class="card-header bg-dark text-white d-flex justify-content-between align-items-center">
+            <h5 class="mb-0 fw-bold"><i class="fa-solid fa-address-book me-2"></i> Sistemdeki Tüm Rehberler</h5>
+        </div>
+        <div class="card-body p-0">
+            <table class="table table-hover align-middle mb-0">
+                <thead class="table-light">
+                    <tr>
+                        <th class="ps-4 py-3">ID - Rehber Adı</th>
+                        <th class="py-3">Oluşturan Müşteri</th>
+                        <th class="py-3">Kayıtlı Kişi Sayısı</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for grup in gruplar %}
+                    <tr>
+                        <td class="ps-4 fw-bold text-primary">
+                            <i class="fa-solid fa-folder me-2 text-warning"></i> 
+                            {{ grup[0] }} - {{ grup[1] }}  </td>
+                        <td class="fw-medium">{{ grup[2] }}</td>
+                        <td><span class="badge bg-light text-dark border">{{ grup[3] }} Kişi</span></td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="3" class="text-center py-5 text-muted">Sistemde henüz oluşturulmuş bir rehber yok.</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}
