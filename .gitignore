@@ -16,3 +16,12 @@ venv/
 
 # IDE (PyCharm Ayarları)
 .idea/
+# Flask/Django özel (Az önce kullandığımız klasör)
+instance/
+
+# Log dosyaları (Uygulama çalışırken oluşan kayıtlar)
+*.log
+
+# İşletim sistemi kalıntıları
+.DS_Store
+Thumbs.db
