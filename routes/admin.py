@@ -114,8 +114,6 @@ def admin_users():
     if getattr(current_user, 'is_admin', 0) != 1: return redirect(url_for('main.dashboard'))
     conn = sqlite3.connect(DB_NAME)
     cursor = conn.cursor()
-
-    # Sorguya sözleşme alanlarını ekledik
     query = """
             SELECT u.id, \
                    u.ad_soyad, \
@@ -133,7 +131,6 @@ def admin_users():
             """
     cursor.execute(query)
     all_users = cursor.fetchall()
-
     user_stats = []
     for user in all_users:
         user_stats.append({
@@ -141,8 +138,8 @@ def admin_users():
             'is_blocked': user[4] if user[4] is not None else 0,
             'plan_type': user[5] if user[5] is not None else 'free',
             'total_mails': user[6],
-            'contract': user[7],  # 1 veya 0
-            'contract_date': user[8]  # Kabul tarihi
+            'contract': user[7],
+            'contract_date': user[8]
         })
     conn.close()
     return render_template('admin_users.html', users=user_stats)
@@ -206,7 +203,6 @@ def admin_site_settings():
     if current_user.is_admin != 1: return redirect(url_for('main.dashboard'))
     conn = sqlite3.connect(DB_NAME)
     cursor = conn.cursor()
-
     if request.method == 'POST':
         ht = request.form.get('hero_title', '')
         hs = request.form.get('hero_subtitle', '')
@@ -217,18 +213,15 @@ def admin_site_settings():
         ga = request.form.get('ga_id', '').strip()
         lu = request.form.get('looker_url', '').strip()
         promo_video = request.form.get('promo_video', '').strip()
-
         cursor.execute("SELECT hero_image FROM landing_settings WHERE id=1")
         mevcut_resim = cursor.fetchone()
         hero_image_path = mevcut_resim[0] if mevcut_resim and mevcut_resim[0] else ""
-
         image_file = request.files.get('hero_image')
         if image_file and image_file.filename:
             filename = secure_filename(image_file.filename)
             filepath = os.path.join(current_app.config['UPLOAD_FOLDER'], filename)
             image_file.save(filepath)
             hero_image_path = filename
-
         cursor.execute("""UPDATE landing_settings
                           SET hero_title=?,
                               hero_subtitle=?,
@@ -247,7 +240,6 @@ def admin_site_settings():
                        (ht, hs, f1t, f1d, f2t, f2d, f3t, f3d, ft, ga, lu, hero_image_path, promo_video))
         conn.commit()
         flash('Site, Medya ve SEO ayarları başarıyla güncellendi!', 'success')
-
     cursor.execute("SELECT * FROM landing_settings WHERE id=1")
     landing = cursor.fetchone()
     conn.close()
@@ -257,26 +249,20 @@ def admin_site_settings():
 @admin_bp.route('/legal-settings', methods=['GET', 'POST'])
 @login_required
 def admin_legal_edit():
-    if getattr(current_user, 'is_admin', 0) != 1:
-        return redirect(url_for('main.dashboard'))
-
+    if getattr(current_user, 'is_admin', 0) != 1: return redirect(url_for('main.dashboard'))
     conn = sqlite3.connect(DB_NAME)
     cursor = conn.cursor()
-
     if request.method == 'POST':
         slug = request.form.get('slug')
         baslik = request.form.get('baslik')
         icerik = request.form.get('icerik')
-
         cursor.execute("UPDATE legal_texts SET baslik = ?, icerik = ? WHERE slug = ?", (baslik, icerik, slug))
         conn.commit()
         flash(f'"{baslik}" başarıyla güncellendi!', 'success')
         return redirect(url_for('admin.admin_legal_edit'))
-
     cursor.execute("SELECT id, slug, baslik, icerik FROM legal_texts")
     texts = cursor.fetchall()
     conn.close()
-
     return render_template('admin_legal_edit.html', texts=texts)
 
 
@@ -286,25 +272,31 @@ def payment_management():
     if current_user.is_admin != 1: return redirect(url_for('main.dashboard'))
     conn = sqlite3.connect(DB_NAME)
     cursor = conn.cursor()
+
     if request.method == 'POST':
         metotlar = ",".join(request.form.getlist('methods'))
         iban = request.form['iban']
+        banka = request.form.get('banka', '').strip()  # Banka adını aldık
+        hesap_sahibi = request.form.get('hesap_sahibi', '').strip()  # Hesap sahibini aldık
         price = request.form['price']
         paytr_id = request.form.get('paytr_id', '').strip()
         paytr_key = request.form.get('paytr_key', '').strip()
         iyzico_key = request.form.get('iyzico_key', '').strip()
         iyzico_secret = request.form.get('iyzico_secret', '').strip()
 
+        # SQL SORGUSU GÜNCELLENDİ: banka_adi ve hesap_sahibi eklendi
         cursor.execute("""UPDATE payment_settings
                           SET active_methods=?,
                               iban_no=?,
+                              banka_adi=?,
+                              hesap_sahibi=?,
                               pro_price=?,
                               paytr_id=?,
                               paytr_key=?,
                               iyzico_api_key=?,
                               iyzico_secret_key=?
                           WHERE id = 1""",
-                       (metotlar, iban, price, paytr_id, paytr_key, iyzico_key, iyzico_secret))
+                       (metotlar, iban, banka, hesap_sahibi, price, paytr_id, paytr_key, iyzico_key, iyzico_secret))
         conn.commit()
         flash('Ödeme ve entegrasyon ayarları başarıyla güncellendi!', 'success')
 
@@ -320,12 +312,9 @@ def payment_management():
 @admin_bp.route('/admin/tum-rehberler')
 @login_required
 def admin_rehberler():
-    if getattr(current_user, 'is_admin', 0) != 1:
-        return redirect(url_for('main.dashboard'))
-
+    if getattr(current_user, 'is_admin', 0) != 1: return redirect(url_for('main.dashboard'))
     conn = sqlite3.connect(DB_NAME)
     cursor = conn.cursor()
-
     cursor.execute("""
                    SELECT u.id,
                           g.group_name,
@@ -337,7 +326,6 @@ def admin_rehberler():
                    """)
     gruplar = cursor.fetchall()
     conn.close()
-
     return render_template('admin_rehberler.html', gruplar=gruplar)
 
 

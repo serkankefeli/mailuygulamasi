@@ -108,12 +108,17 @@
 
             <div class="row">
                 <div class="col-md-4 mb-3">
-                    <div class="p-3 bg-light rounded h-100">
-                        <h6 class="fw-bold mb-3"><i class="fas fa-university me-2 text-secondary"></i> Havale / EFT</h6>
-                        <label class="small text-muted">IBAN (TR hariç)</label>
-                        <input type="text" name="iban" class="form-control mb-2" value="{{ settings[2] }}">
-                        <label class="small text-muted">Banka Adı</label>
-                        <input type="text" name="banka" class="form-control" value="{{ settings[3] }}">
+                    <div class="p-3 bg-light rounded h-100 border-start border-success border-4">
+                        <h6 class="fw-bold mb-3"><i class="fas fa-university me-2 text-success"></i> Havale / EFT</h6>
+
+                        <label class="small text-muted fw-bold">Hesap Sahibi</label>
+                        <input type="text" name="hesap_sahibi" class="form-control mb-2" value="{{ settings[10] if settings|length > 10 else '' }}" placeholder="örn: Serkan Kefeli">
+
+                        <label class="small text-muted fw-bold">Banka Adı</label>
+                        <input type="text" name="banka" class="form-control mb-2" value="{{ settings[3] }}">
+
+                        <label class="small text-muted fw-bold">IBAN (TR hariç)</label>
+                        <input type="text" name="iban" class="form-control" value="{{ settings[2] }}">
                     </div>
                 </div>
 
