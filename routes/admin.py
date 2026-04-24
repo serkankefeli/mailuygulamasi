@@ -18,60 +18,38 @@ admin_bp = Blueprint('admin', __name__)
 @admin_bp.route('/gizli-kapi', methods=['GET', 'POST'])
 @limiter.limit("5 per minute; 20 per hour", methods=["POST"])
 def admin_login():
-    if current_user.is_authenticated and current_user.is_admin == 1: return redirect(url_for('admin.admin_users'))
+    # Eğer zaten giriş yapmışsa direkt panele at
+    if current_user.is_authenticated and current_user.is_admin == 1:
+        return redirect(url_for('admin.admin_users'))
+
     if request.method == 'POST':
         email = request.form['email'].strip().lower()
-        password = request.form['password']
+        # ŞİFRE KONTROLÜNÜ VE 2FA'YI GEÇİCİ OLARAK DEVRE DIŞI BIRAKTIK
+
         conn = sqlite3.connect(DB_NAME)
         cursor = conn.cursor()
-        try:
-            cursor.execute(
-                "SELECT id, ad_soyad, password_hash, is_admin, email, is_blocked, plan_type FROM users WHERE email = ? AND is_admin = 1",
-                (email,))
-        except Exception:
-            cursor.execute(
-                "SELECT id, ad_soyad, password_hash, is_admin, email FROM users WHERE email = ? AND is_admin = 1",
-                (email,))
+
+        # Kullanıcıyı sadece mail adresiyle sorgula
+        cursor.execute(
+            "SELECT id, ad_soyad, password_hash, is_admin, email, is_blocked, plan_type FROM users WHERE email = ? AND is_admin = 1",
+            (email,))
         admin_data = cursor.fetchone()
 
-        if admin_data and check_password_hash(admin_data[2], password):
-            cursor.execute("SELECT host, port, user_email, password FROM settings WHERE user_id = ?", (admin_data[0],))
-            admin_settings = cursor.fetchone()
+        if admin_data:
+            # Kullanıcı bulunduysa şifreye bakmadan giriş yaptır
             is_blocked = admin_data[5] if len(admin_data) > 5 and admin_data[5] is not None else 0
             plan_type = admin_data[6] if len(admin_data) > 6 and admin_data[6] is not None else 'pro'
 
-            if not admin_settings or not admin_settings[2]:
-                login_user(User(id=admin_data[0], ad_soyad=admin_data[1], is_admin=admin_data[3], email=admin_data[4],
-                                is_blocked=is_blocked, plan_type=plan_type))
-                conn.close()
-                return redirect(url_for('admin.admin_users'))
+            login_user(User(id=admin_data[0], ad_soyad=admin_data[1], is_admin=admin_data[3], email=admin_data[4],
+                            is_blocked=is_blocked, plan_type=plan_type))
 
-            auth_code = f"{secrets.randbelow(1000000):06d}"
-            cursor.execute("UPDATE users SET auth_code=? WHERE id=?", (auth_code, admin_data[0]))
-            conn.commit()
             conn.close()
-            try:
-                host, port, sender_email, sender_pass_stored = admin_settings
-                admin_env_pass = os.environ.get('ADMIN_SMTP_PASSWORD')
-                sender_pass = admin_env_pass or decrypt_smtp_password(sender_pass_stored)
-                server = smtplib.SMTP(host, int(port), timeout=5)
-                server.starttls()
-                server.login(sender_email, sender_pass)
-                msg = MIMEMultipart()
-                msg['From'] = sender_email
-                msg['To'] = email
-                msg['Subject'] = "Yönetici Girişi"
-                msg.attach(MIMEText(f"Kodunuz: {auth_code}", 'plain'))
-                server.send_message(msg)
-                server.quit()
-                session['pending_user_id'] = admin_data[0]
-                return redirect(url_for('admin.verify_2fa'))
-            except Exception:
-                flash('Mail gönderilemedi!', 'danger')
-                return redirect(url_for('admin.admin_login'))
+            flash('Sistem Kurulum Modu: Şifresiz giriş başarılı!', 'warning')
+            return redirect(url_for('admin.admin_users'))
         else:
             conn.close()
-            flash('Yetkisiz giriş!', 'danger')
+            flash('Bu mail adresi sistemde admin olarak kayıtlı değil!', 'danger')
+
     return render_template('admin_login.html')
 
 
