@@ -171,7 +171,48 @@ def init_db():
     cursor.execute('''CREATE TABLE IF NOT EXISTS templates (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id INTEGER, template_name TEXT, subject TEXT, body TEXT)''')
     cursor.execute('''CREATE TABLE IF NOT EXISTS blacklist (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id INTEGER, email TEXT, UNIQUE(user_id, email))''')
     cursor.execute('''CREATE TABLE IF NOT EXISTS legal_texts (id INTEGER PRIMARY KEY AUTOINCREMENT, slug TEXT UNIQUE, baslik TEXT, icerik TEXT)''')
-    cursor.execute('''CREATE TABLE IF NOT EXISTS payment_settings (id INTEGER PRIMARY KEY AUTOINCREMENT, banka_adi TEXT, iban TEXT, hesap_sahibi TEXT, aylik_ucret REAL, yillik_ucret REAL)''')
+    # payment_settings — route ve template'in beklediği tam şema.
+    # Template pozisyonel index kullandığı için kolon SIRASI kritiktir:
+    # [0]id [1]active_methods [2]iban_no [3]banka_adi [4]aylik_ucret(legacy)
+    # [5]pro_price [6]paytr_id [7]paytr_key [8]iyzico_api_key [9]iyzico_secret_key [10]hesap_sahibi
+    cursor.execute('''CREATE TABLE IF NOT EXISTS payment_settings (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        active_methods TEXT DEFAULT 'havale',
+        iban_no TEXT DEFAULT '',
+        banka_adi TEXT DEFAULT '',
+        aylik_ucret REAL DEFAULT 499.0,
+        pro_price REAL DEFAULT 499.0,
+        paytr_id TEXT DEFAULT '',
+        paytr_key TEXT DEFAULT '',
+        iyzico_api_key TEXT DEFAULT '',
+        iyzico_secret_key TEXT DEFAULT '',
+        hesap_sahibi TEXT DEFAULT ''
+    )''')
+
+    # Schema migration: eski tablo (banka_adi, iban, hesap_sahibi, aylik_ucret, yillik_ucret)
+    # varsa route'un beklediği yeni şemayla değiştir. Eski tablo sadece 1 default satır
+    # içeriyordu, kullanıcı verisi yok — DROP/RECREATE güvenli.
+    try:
+        cursor.execute("PRAGMA table_info(payment_settings)")
+        _pay_cols = [row[1] for row in cursor.fetchall()]
+        if 'active_methods' not in _pay_cols:
+            cursor.execute("DROP TABLE payment_settings")
+            cursor.execute('''CREATE TABLE payment_settings (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                active_methods TEXT DEFAULT 'havale',
+                iban_no TEXT DEFAULT '',
+                banka_adi TEXT DEFAULT '',
+                aylik_ucret REAL DEFAULT 499.0,
+                pro_price REAL DEFAULT 499.0,
+                paytr_id TEXT DEFAULT '',
+                paytr_key TEXT DEFAULT '',
+                iyzico_api_key TEXT DEFAULT '',
+                iyzico_secret_key TEXT DEFAULT '',
+                hesap_sahibi TEXT DEFAULT ''
+            )''')
+    except sqlite3.OperationalError:
+        # Paralel worker migration'ı zaten yapmış olabilir — sessizce geç.
+        pass
     cursor.execute('''CREATE TABLE IF NOT EXISTS upgrade_requests (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id INTEGER, talep_tarihi TEXT, odeme_metodu TEXT, durum TEXT DEFAULT 'Bekliyor')''')
     cursor.execute('''CREATE TABLE IF NOT EXISTS landing_settings (id INTEGER PRIMARY KEY AUTOINCREMENT, hero_title TEXT, hero_subtitle TEXT, features_json TEXT)''')
 
@@ -200,14 +241,14 @@ def init_db():
     except sqlite3.IntegrityError:
         pass
 
-    # payment_settings'te UNIQUE yok — race'te en kötü 2-3 satır yazılır.
-    # Bu nedenle önce COUNT kontrolü + IntegrityError yakalama.
+    # payment_settings default satırı — route UPDATE ... WHERE id=1 yaptığı için
+    # id=1'de bir satır bulunması şart. INSERT OR IGNORE atomik olarak race-safe.
     try:
-        cursor.execute("SELECT COUNT(*) FROM payment_settings")
-        if cursor.fetchone()[0] == 0:
-            cursor.execute(
-                "INSERT INTO payment_settings (banka_adi, iban, hesap_sahibi, aylik_ucret, yillik_ucret) VALUES (?, ?, ?, ?, ?)",
-                ('Banka Adı', 'TR00', 'EST Yazılım', 499.0, 4990.0))
+        cursor.execute(
+            """INSERT OR IGNORE INTO payment_settings
+               (id, active_methods, iban_no, banka_adi, aylik_ucret, pro_price,
+                paytr_id, paytr_key, iyzico_api_key, iyzico_secret_key, hesap_sahibi)
+               VALUES (1, 'havale', '', '', 499.0, 499.0, '', '', '', '', '')""")
     except sqlite3.IntegrityError:
         pass
 
