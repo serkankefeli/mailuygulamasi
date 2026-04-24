@@ -23,13 +23,13 @@ services:
     ports:
       - "5000:5000"
     environment:
-      # Veritabanına nasıl bağlanacağını buraya yazıyoruz
       DATABASE_URL: "postgresql://est_admin:est_cok_gizli_sifre@db:5432/est_mailer_db"
     depends_on:
       - db
     volumes:
       - ./static/images:/app/static/images # Logolar silinmesin diye
       - ./uploads:/app/uploads # Ekler silinmesin diye
+      - ./instance:/app/instance # 🚀 İŞTE HAYAT KURTARAN SATIR: Veritabanı artık silinmeyecek!
     networks:
       - est_network
 
