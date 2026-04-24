@@ -1,5 +1,5 @@
 """
-Geli mi Hata Yönetim Sistemi
+Gelişmiş Hata Yönetim Sistemi
 """
 import logging
 import traceback
@@ -9,12 +9,24 @@ from flask import flash, current_app
 import sqlite3
 import os
 
+# Log dosyasını instance klasörü yanına, absolute path olarak yaz.
+# Böylece Docker container cwd ne olursa olsun log yeri sabit ve volume'de kalıcı.
+_LOG_DIR = os.environ.get('MAILKAMP_LOG_DIR') or (
+    '/app/instance' if os.path.isdir('/app/instance') else
+    os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'instance')
+)
+try:
+    os.makedirs(_LOG_DIR, exist_ok=True)
+except Exception:
+    _LOG_DIR = '.'
+_LOG_FILE = os.path.join(_LOG_DIR, 'mailkamp_errors.log')
+
 # Loglama konfigürasyonu
 logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
     handlers=[
-        logging.FileHandler('mailkamp_errors.log'),
+        logging.FileHandler(_LOG_FILE),
         logging.StreamHandler()
     ]
 )
@@ -32,8 +44,8 @@ class MailKampError(Exception):
 def log_error_to_db(error_message, error_type, user_id=None, endpoint=None, traceback_info=None):
     """Hatalar veritaban na loglar"""
     try:
-        db_name = os.environ.get('DB_NAME', 'web_mailer_v6.db')
-        conn = sqlite3.connect(db_name)
+        from extensions import DB_NAME as _DB
+        conn = sqlite3.connect(_DB)
         cursor = conn.cursor()
         
         # Error logs tablosu olu tur (yoksa)
@@ -138,8 +150,8 @@ def handle_mail_error(func):
 def safe_execute_query(query, params=None, fetch_one=False, fetch_all=True):
     """Güvenli veritaban sorgusu çal t rma"""
     try:
-        db_name = os.environ.get('DB_NAME', 'web_mailer_v6.db')
-        conn = sqlite3.connect(db_name)
+        from extensions import DB_NAME as _DB
+        conn = sqlite3.connect(_DB)
         conn.row_factory = sqlite3.Row  # Dictionary-like access
         cursor = conn.cursor()
         
@@ -209,8 +221,8 @@ def get_error_statistics():
 def cleanup_old_logs(days_to_keep=30):
     """Eski hata loglar n temizler"""
     try:
-        db_name = os.environ.get('DB_NAME', 'web_mailer_v6.db')
-        conn = sqlite3.connect(db_name)
+        from extensions import DB_NAME as _DB
+        conn = sqlite3.connect(_DB)
         cursor = conn.cursor()
         
         cursor.execute('''

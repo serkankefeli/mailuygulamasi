@@ -16,12 +16,9 @@ venv/
 
 # IDE (PyCharm Ayarları)
 .idea/
-# Flask/Django özel (Az önce kullandığımız klasör)
-instance/
 
-# Log dosyaları (Uygulama çalışırken oluşan kayıtlar)
-*.log
-
-# İşletim sistemi kalıntıları
-.DS_Store
-Thumbs.db
+# Flask instance klasörü: Klasörün kendisi Git'te olsun ki sunucuda clone'dan sonra
+# hazır gelsin. Ama içindeki veritabanı ve loglar Git'e ASLA düşmesin.
+instance/*
+!instance/.gitkeep
+

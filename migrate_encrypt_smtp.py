@@ -17,8 +17,10 @@ from cryptography.fernet import Fernet, InvalidToken
 
 load_dotenv()
 
-DB_NAME = os.environ.get('DB_NAME', 'web_mailer_v6.db')
-FERNET_KEY = os.environ.get('MAILKAMP_FERNET_KEY')
+# Uygulamanın kullandığı gerçek DB yolunu extensions'tan alıyoruz.
+# MAILKAMP_DB_PATH env ayarlıysa onu, değilse instance/web_mailer_v6.db.
+from extensions import DB_NAME
+FERNET_KEY = os.environ.get('MAILKAMP_FERNET_KEY') or os.environ.get('SMTP_ENCRYPTION_KEY')
 
 if not FERNET_KEY:
     print("HATA: MAILKAMP_FERNET_KEY .env'de tanımlı değil.")

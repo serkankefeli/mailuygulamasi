@@ -218,13 +218,27 @@ def send_mail():
         try:
             send_time = datetime.strptime(send_time_str,
                                           '%Y-%m-%dT%H:%M' if len(send_time_str) == 16 else '%Y-%m-%dT%H:%M:%S')
-            now = datetime.now() + timedelta(hours=3)
-            if send_time > now: delay = (send_time - now).total_seconds()
+            # Kullanıcı Türkiye saatiyle girer. Sunucu UTC'deyse 3 saat ekleyerek karşılaştır.
+            # TZ env değişkeni ayarlıysa sunucu saatine güvenir, yoksa +3 (TRT) varsayılır.
+            try:
+                from zoneinfo import ZoneInfo
+                tz_name = os.environ.get('TZ', 'Europe/Istanbul')
+                now_local = datetime.now(ZoneInfo(tz_name)).replace(tzinfo=None)
+            except Exception:
+                # Eski Python veya tzdata yoksa: manuel +3 offset
+                now_local = datetime.utcnow() + timedelta(hours=3)
+            if send_time > now_local:
+                delay = (send_time - now_local).total_seconds()
         except Exception:
             pass
 
+    # Tracking/unsubscribe linkleri için public URL. PUBLIC_BASE_URL env ayarlanmışsa onu kullan,
+    # yoksa request.host_url (reverse proxy arkasında yanlış olabilir — ProxyFix bunu düzeltir).
+    _configured_base = current_app.config.get('PUBLIC_BASE_URL')
+    _base_url = (_configured_base + '/') if _configured_base else request.host_url
+
     args = (current_user.id, email_list, request.form['subject'], request.form['body'], attachment_paths,
-            request.form.get('video_link', '').strip(), cover_path, settings, request.host_url, is_free_plan,
+            request.form.get('video_link', '').strip(), cover_path, settings, _base_url, is_free_plan,
             current_app.secret_key)
 
     if delay > 0:
@@ -356,9 +370,12 @@ def api_send():
     email_list = [e.strip().lower() for e in data['to'] if "@" in e]
     if not email_list: return jsonify({'error': 'Gecerli e-posta bulunamadi.'}), 400
 
+    _configured_base = current_app.config.get('PUBLIC_BASE_URL')
+    _base_url = (_configured_base + '/') if _configured_base else request.host_url
+
     threading.Thread(target=background_mailer,
                      args=(user[0], email_list, data['subject'], data['body'], [], None, None, settings,
-                           request.host_url, False, current_app.secret_key)).start()
+                           _base_url, False, current_app.secret_key)).start()
     return jsonify({'success': True, 'message': f'{len(email_list)} alici isleme alindi.'}), 200
 
 

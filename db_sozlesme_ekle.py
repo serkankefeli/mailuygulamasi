@@ -1,7 +1,13 @@
 import sqlite3
+import os
+from dotenv import load_dotenv
 
-# Eğer veritabanı adın farklıysa 'mailkamp.db' kısmını ona göre değiştir
-conn = sqlite3.connect('web_mailer_v6.db')
+load_dotenv()
+# Uygulamanın kullandığı gerçek DB yolunu extensions'tan al (instance/ içinde).
+from extensions import DB_NAME
+
+print(f"Veritabanı yolu: {DB_NAME}")
+conn = sqlite3.connect(DB_NAME)
 cursor = conn.cursor()
 
 try:

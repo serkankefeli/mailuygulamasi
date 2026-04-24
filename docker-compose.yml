@@ -1,41 +1,36 @@
 version: '3.8'
 
-services:
-  # 1. KUTU: VERİTABANI (PostgreSQL)
-  db:
-    image: postgres:15-alpine
-    container_name: est_mail_db
-    restart: always
-    environment:
-      POSTGRES_USER: est_admin
-      POSTGRES_PASSWORD: est_cok_gizli_sifre
-      POSTGRES_DB: est_mailer_db
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
-    networks:
-      - est_network
+# MailKamp - Production docker-compose
+#
+# NOT: Uygulama şu an SQLite kullanıyor (kod tabanı sqlite3 ile yazılmış).
+# PostgreSQL servisi daha önce tanımlıydı ama kod onu kullanmıyordu ve sadece kafa karıştırıyordu.
+# İleride PostgreSQL'e geçiş yapılırsa burası genişletilir.
 
-  # 2. KUTU: BİZİM PYTHON UYGULAMAMIZ
+services:
   web:
     build: .
     container_name: est_mail_app
     restart: always
     ports:
       - "5000:5000"
+    env_file:
+      - .env
     environment:
-      DATABASE_URL: "postgresql://est_admin:est_cok_gizli_sifre@db:5432/est_mailer_db"
-    depends_on:
-      - db
+      # Sunucuda bunları .env'den de verebilirsin ama burada zorlamak daha güvenli.
+      MAILKAMP_ENV: production
+      TZ: Europe/Istanbul
+      # Eğer domainin varsa maillerdeki tracking/unsubscribe linkleri için DOLDUR:
+      # PUBLIC_BASE_URL: "https://mailkamp.senindomain.com"
     volumes:
-      - ./static/images:/app/static/images # Logolar silinmesin diye
-      - ./uploads:/app/uploads # Ekler silinmesin diye
-      - ./instance:/app/instance # 🚀 İŞTE HAYAT KURTARAN SATIR: Veritabanı artık silinmeyecek!
+      # 📌 KRİTİK: Veritabanı, loglar ve kullanıcı SMTP ayarları burada kalıcı tutuluyor.
+      # Bu volume olmadan her docker-compose up --build veritabanını SİLER.
+      - ./instance:/app/instance
+      # Yüklenen logolar ve ek dosyalar
+      - ./static/images:/app/static/images
+      - ./uploads:/app/uploads
     networks:
       - est_network
 
 networks:
   est_network:
     driver: bridge
-
-volumes:
-  postgres_data:
