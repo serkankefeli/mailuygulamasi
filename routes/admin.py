@@ -52,8 +52,11 @@ def admin_login():
             conn.close()
             try:
                 host, port, sender_email, sender_pass_stored = admin_settings
-                admin_env_pass = os.environ.get('ADMIN_SMTP_PASSWORD')
-                sender_pass = admin_env_pass or decrypt_smtp_password(sender_pass_stored)
+
+                # ÖNCE VERİTABANINA BAK, BOŞSA VEYA ÇÖZÜLEMEZSE .ENV'YE DÖN!
+                sender_pass = decrypt_smtp_password(sender_pass_stored)
+                if not sender_pass:
+                    sender_pass = os.environ.get('ADMIN_SMTP_PASSWORD')
 
                 # AKILLI PORT KONTROLÜ
                 port_int = int(port)
