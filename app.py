@@ -175,27 +175,49 @@ def init_db():
     cursor.execute('''CREATE TABLE IF NOT EXISTS upgrade_requests (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id INTEGER, talep_tarihi TEXT, odeme_metodu TEXT, durum TEXT DEFAULT 'Bekliyor')''')
     cursor.execute('''CREATE TABLE IF NOT EXISTS landing_settings (id INTEGER PRIMARY KEY AUTOINCREMENT, hero_title TEXT, hero_subtitle TEXT, features_json TEXT)''')
 
-    # 2. SENİN KODUN: ADMİN KULLANICISINI OLUŞTUR
-    cursor.execute("SELECT id FROM users WHERE email = ?", ("kefeliserkan@gmail.com",))
-    if not cursor.fetchone():
+    # 2. ADMİN KULLANICISINI OLUŞTUR (Race-safe: INSERT OR IGNORE)
+    # Gunicorn'un birden fazla worker'ı aynı anda init_db çalıştırdığında
+    # eski check-then-insert kalıbı "UNIQUE constraint failed" hatası veriyordu.
+    # users.email UNIQUE olduğu için INSERT OR IGNORE atomik olarak güvenli.
+    try:
         ilk_sifre = os.environ.get('ADMIN_INITIAL_PASSWORD', 'Admin123!')
         hashed_pw = generate_password_hash(ilk_sifre)
         cursor.execute(
-            "INSERT INTO users (ad_soyad, email, password_hash, is_admin, plan_type) VALUES (?, ?, ?, 1, 'pro')",
+            "INSERT OR IGNORE INTO users (ad_soyad, email, password_hash, is_admin, plan_type) VALUES (?, ?, ?, 1, 'pro')",
             ("Serkan Kefeli", "kefeliserkan@gmail.com", hashed_pw))
+    except sqlite3.IntegrityError:
+        pass
 
     # 3. YENİ EKLENEN SÖZLEŞMELERİ VE AYARLARI DOLDUR (Boşsa)
-    cursor.execute("SELECT COUNT(*) FROM legal_texts")
-    if cursor.fetchone()[0] == 0:
-        cursor.execute("INSERT INTO legal_texts (slug, baslik, icerik) VALUES ('kullanim-kosullari', 'Kullanım Koşulları', '<p>Sistem kullanım koşulları...</p>')")
-        cursor.execute("INSERT INTO legal_texts (slug, baslik, icerik) VALUES ('mesafeli-satis-sozlesmesi', 'Mesafeli Satış Sözleşmesi', '<p>Satış sözleşmesi...</p>')")
+    # legal_texts.slug UNIQUE olduğu için INSERT OR IGNORE güvenli.
+    try:
+        cursor.execute(
+            "INSERT OR IGNORE INTO legal_texts (slug, baslik, icerik) VALUES (?, ?, ?)",
+            ('kullanim-kosullari', 'Kullanım Koşulları', '<p>Sistem kullanım koşulları...</p>'))
+        cursor.execute(
+            "INSERT OR IGNORE INTO legal_texts (slug, baslik, icerik) VALUES (?, ?, ?)",
+            ('mesafeli-satis-sozlesmesi', 'Mesafeli Satış Sözleşmesi', '<p>Satış sözleşmesi...</p>'))
+    except sqlite3.IntegrityError:
+        pass
 
-    cursor.execute("SELECT COUNT(*) FROM payment_settings")
-    if cursor.fetchone()[0] == 0:
-        cursor.execute("INSERT INTO payment_settings (banka_adi, iban, hesap_sahibi, aylik_ucret, yillik_ucret) VALUES ('Banka Adı', 'TR00', 'EST Yazılım', 499.0, 4990.0)")
+    # payment_settings'te UNIQUE yok — race'te en kötü 2-3 satır yazılır.
+    # Bu nedenle önce COUNT kontrolü + IntegrityError yakalama.
+    try:
+        cursor.execute("SELECT COUNT(*) FROM payment_settings")
+        if cursor.fetchone()[0] == 0:
+            cursor.execute(
+                "INSERT INTO payment_settings (banka_adi, iban, hesap_sahibi, aylik_ucret, yillik_ucret) VALUES (?, ?, ?, ?, ?)",
+                ('Banka Adı', 'TR00', 'EST Yazılım', 499.0, 4990.0))
+    except sqlite3.IntegrityError:
+        pass
 
-    conn.commit()
-    conn.close()
+    try:
+        conn.commit()
+    except sqlite3.IntegrityError:
+        # Paralel worker zaten commit ettiyse sessizce geç.
+        pass
+    finally:
+        conn.close()
 
 
 # Reverse proxy (nginx/traefik) arkasındayken HTTPS ve gerçek IP'yi doğru görmek için.
