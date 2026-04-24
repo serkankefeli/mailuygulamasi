@@ -171,6 +171,7 @@ def init_db():
     cursor.execute('''CREATE TABLE IF NOT EXISTS templates (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id INTEGER, template_name TEXT, subject TEXT, body TEXT)''')
     cursor.execute('''CREATE TABLE IF NOT EXISTS blacklist (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id INTEGER, email TEXT, UNIQUE(user_id, email))''')
     cursor.execute('''CREATE TABLE IF NOT EXISTS legal_texts (id INTEGER PRIMARY KEY AUTOINCREMENT, slug TEXT UNIQUE, baslik TEXT, icerik TEXT)''')
+    cursor.execute('''CREATE TABLE IF NOT EXISTS landing_settings(id INTEGER PRIMARY KEY AUTOINCREMENT,hero_title TEXT, hero_subtitle TEXT, hero_image TEXT, f1_title TEXT, f1_desc TEXT, f2_title TEXT, f2_desc TEXT, f3_title TEXT, f3_desc TEXT, footer_text TEXT, ga_id TEXT, looker_url TEXT, promo_video TEXT)''')
     # payment_settings — route ve template'in beklediği tam şema.
     # Template pozisyonel index kullandığı için kolon SIRASI kritiktir:
     # [0]id [1]active_methods [2]iban_no [3]banka_adi [4]aylik_ucret(legacy)
