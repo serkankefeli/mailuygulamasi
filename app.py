@@ -41,7 +41,9 @@ app.config.update(
     SESSION_COOKIE_SECURE=(_ENV == 'production'),
     PERMANENT_SESSION_LIFETIME=timedelta(hours=12),
     MAX_CONTENT_LENGTH=25 * 1024 * 1024,
+
 )
+app.config['TURNSTILE_SITE_KEY'] = os.environ.get('TURNSTILE_SITE_KEY', 'TEST_KEY_BURAYA')
 
 # Eklentileri Sisteme Bağla
 csrf.init_app(app)
@@ -215,7 +217,7 @@ def init_db():
         # Paralel worker migration'ı zaten yapmış olabilir — sessizce geç.
         pass
     cursor.execute('''CREATE TABLE IF NOT EXISTS upgrade_requests (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id INTEGER, talep_tarihi TEXT, odeme_metodu TEXT, durum TEXT DEFAULT 'Bekliyor')''')
-    cursor.execute('''CREATE TABLE IF NOT EXISTS landing_settings (id INTEGER PRIMARY KEY AUTOINCREMENT, hero_title TEXT, hero_subtitle TEXT, features_json TEXT)''')
+
 
     # 2. ADMİN KULLANICISINI OLUŞTUR (Race-safe: INSERT OR IGNORE)
     # Gunicorn'un birden fazla worker'ı aynı anda init_db çalıştırdığında

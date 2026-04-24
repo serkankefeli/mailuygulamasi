@@ -1,12 +1,14 @@
+import os
+import secrets
+import smtplib
+import sqlite3
+import requests
+from email.mime.multipart import MIMEMultipart
+from email.mime.text import MIMEText
+
 from flask import Blueprint, render_template, request, redirect, url_for, flash, session
 from flask_login import login_user, logout_user, login_required, current_user
 from werkzeug.security import generate_password_hash, check_password_hash
-import sqlite3
-import smtplib
-from email.mime.text import MIMEText
-from email.mime.multipart import MIMEMultipart
-import secrets
-import os
 
 from extensions import DB_NAME, limiter, decrypt_smtp_password
 from models import User
@@ -14,7 +16,7 @@ from models import User
 # Blueprint'i tanımlıyoruz
 auth_bp = Blueprint('auth', __name__)
 
-
+# --- 🛡️ LOGIN (GİRİŞ) ---
 @auth_bp.route('/login', methods=['GET', 'POST'])
 @limiter.limit("60 per minute; 10 per hour", methods=["POST"])
 def login():
@@ -24,65 +26,69 @@ def login():
         return redirect(url_for('main.dashboard'))
 
     if request.method == 'POST':
+        # --- 🛡️ CLOUDFLARE TURNSTILE KONTROLÜ ---
+        turnstile_response = request.form.get('cf-turnstile-response')
+        secret_key = os.environ.get('TURNSTILE_SECRET_KEY')
+
+        if secret_key and turnstile_response:
+            verify_url = "https://challenges.cloudflare.com/turnstile/v0/siteverify"
+            verify_data = {'secret': secret_key, 'response': turnstile_response}
+            try:
+                cf_res = requests.post(verify_url, data=verify_data, timeout=5).json()
+                if not cf_res.get('success'):
+                    flash("Güvenlik doğrulamasından geçemediniz. Lütfen tekrar deneyin.", "danger")
+                    return redirect(url_for('auth.login'))
+            except Exception as e:
+                print(f"Turnstile Hatası: {e}")
+
         email = request.form['email'].strip().lower()
         password = request.form['password']
 
         conn = sqlite3.connect(DB_NAME)
         cursor = conn.cursor()
 
-        # Kullanıcıyı e-postasına göre çek
         try:
             cursor.execute(
                 "SELECT id, ad_soyad, password_hash, is_admin, email, is_blocked, plan_type FROM users WHERE email = ?",
                 (email,))
+            user_data = cursor.fetchone()
         except Exception:
             cursor.execute("SELECT id, ad_soyad, password_hash, is_admin, email FROM users WHERE email = ?", (email,))
-        user_data = cursor.fetchone()
+            user_data = cursor.fetchone()
 
-        # Şifre Doğruysa
         if user_data and check_password_hash(user_data[2], password):
             is_admin = user_data[3]
-
-            # Eğer Adminsense, buradan giremezsiniz (Gizli Kapıya Gitmeli)
             if is_admin == 1:
                 conn.close()
-                flash('Güvenlik İhlali: Yönetici hesapları bu portaldan oturum açamaz!', 'danger')
+                flash('Güvenlik İhlali: Yönetici hesapları buradan giriş yapamaz!', 'danger')
                 return redirect(url_for('auth.login'))
 
-            # Eğer müşteri bloklanmışsa
             is_blocked = user_data[5] if len(user_data) > 5 and user_data[5] is not None else 0
             if is_blocked == 1:
                 conn.close()
-                flash('Hesabınız yönetici tarafından engellenmiştir. Sisteme giriş yapamazsınız.', 'danger')
+                flash('Hesabınız engellenmiştir.', 'danger')
                 return redirect(url_for('auth.login'))
 
-            # MÜŞTERİ İÇİN DİREKT GİRİŞ (2FA YOK)
             plan_type = user_data[6] if len(user_data) > 6 and user_data[6] is not None else 'free'
-
-            # Flask-Login ile oturumu aç
             login_user(User(id=user_data[0], ad_soyad=user_data[1], is_admin=is_admin, email=user_data[4],
                             is_blocked=is_blocked, plan_type=plan_type))
             conn.close()
-
-            # Varsa Session'daki 2FA kalıntılarını temizle
             session.pop('temp_user_email', None)
-
-            # Doğruca Dashboard'a yolla
             return redirect(url_for('main.dashboard'))
-
         else:
-            # Şifre Yanlışsa
             conn.close()
             flash('Hatalı e-posta veya şifre!', 'danger')
 
     return render_template('login.html')
 
+# --- 🛡️ LOGOUT (ÇIKIŞ) ---
 @auth_bp.route('/logout')
 @login_required
 def logout():
     logout_user()
     return redirect(url_for('auth.login'))
 
+# --- 🛡️ REGISTER (KAYIT) ---
 @auth_bp.route('/register', methods=['GET', 'POST'])
 @limiter.limit("5 per minute; 20 per hour", methods=["POST"])
 def register():
@@ -93,7 +99,7 @@ def register():
         password = request.form['password']
 
         if len(password) < 8 or not any(not c.isalnum() for c in password):
-            flash('Güvenlik Uyarısı: Şifreniz en az 8 karakter olmalı ve en az 1 özel karakter (!@#$%^&* vb.) içermelidir!', 'warning')
+            flash('Şifreniz en az 8 karakter ve 1 özel karakter içermelidir!', 'warning')
             return redirect(url_for('auth.register'))
 
         if password != request.form['confirm_password']:
@@ -104,7 +110,7 @@ def register():
         cursor = conn.cursor()
         cursor.execute("SELECT id FROM users WHERE email = ?", (email,))
         if cursor.fetchone():
-            flash('Bu mail zaten kayıtlı. Lütfen giriş yapın.', 'danger')
+            flash('Bu mail zaten kayıtlı.', 'danger')
             conn.close()
             return redirect(url_for('auth.register'))
 
@@ -112,10 +118,11 @@ def register():
         cursor.execute("INSERT INTO users (ad_soyad, email, password_hash, is_admin, plan_type) VALUES (?, ?, ?, 0, 'free')", (ad_soyad, email, hashed_pw))
         conn.commit()
         conn.close()
-        flash('Kayıt başarılı! Şimdi belirlediğiniz şifre ile giriş yapabilirsiniz.', 'success')
+        flash('Kayıt başarılı! Giriş yapabilirsiniz.', 'success')
         return redirect(url_for('auth.login'))
     return render_template('register.html')
 
+# --- 🔑 SİFREMİ UNUTTUM ---
 @auth_bp.route('/forgot-password', methods=['GET', 'POST'])
 @limiter.limit("5 per minute; 20 per hour", methods=["POST"])
 def forgot_password():
@@ -159,6 +166,7 @@ def forgot_password():
         conn.close()
     return render_template('forgot_password.html')
 
+# --- 🔑 SİFRE SIFIRLA ---
 @auth_bp.route('/reset-password', methods=['GET', 'POST'])
 @limiter.limit("10 per minute; 50 per hour", methods=["POST"])
 def reset_password():
@@ -184,6 +192,7 @@ def reset_password():
             flash('Geçersiz kod.', 'danger')
     return render_template('reset_password.html')
 
+# --- 👤 PROFİL ---
 @auth_bp.route('/profile', methods=['GET', 'POST'])
 @login_required
 def profile():
@@ -204,30 +213,25 @@ def profile():
         return redirect(url_for('auth.profile'))
     return render_template('profile.html')
 
-
+# --- 🛡️ 2FA DOĞRULAMA ---
 @auth_bp.route('/verify-2fa', methods=['GET', 'POST'])
 def verify_2fa():
     email = session.get('temp_user_email')
     if not email: return redirect(url_for('auth.login'))
-
     if request.method == 'POST':
         code = request.form['code'].strip()
         conn = sqlite3.connect(DB_NAME)
         u = conn.execute(
             "SELECT id, ad_soyad, is_admin, email, is_blocked, plan_type, auth_code FROM users WHERE email = ?",
             (email,)).fetchone()
-
         if u and str(u[6]) == str(code):
-            # Kod doğru! Asıl girişi ŞİMDİ yapıyoruz
             conn.execute("UPDATE users SET auth_code = NULL WHERE id = ?", (u[0],))
             conn.commit()
             conn.close()
-
             plan_type = u[5] if u[5] is not None else 'free'
             login_user(User(id=u[0], ad_soyad=u[1], is_admin=u[2], email=u[3], is_blocked=u[4], plan_type=plan_type))
             session.pop('temp_user_email', None)
             return redirect(url_for('main.dashboard'))
-
         conn.close()
         flash('Geçersiz kod!', 'danger')
     return render_template('verify_2fa.html')
