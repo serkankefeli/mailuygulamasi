@@ -303,9 +303,14 @@ def test_smtp():
     # Adım adım test ediyoruz ki hangi aşamada patladığı net görünsün.
     stage = 'connect'
     try:
-        server = smtplib.SMTP(host, port, timeout=10)
-        stage = 'starttls'
-        server.starttls()
+        # AKILLI PORT KONTROLÜ
+        if port == 465:
+            server = smtplib.SMTP_SSL(host, port, timeout=10)
+        else:
+            server = smtplib.SMTP(host, port, timeout=10)
+            stage = 'starttls'
+            server.starttls()
+
         stage = 'login'
         server.login(user_email, password)
         stage = 'send'

@@ -221,7 +221,7 @@ def init_db():
     # eski check-then-insert kalıbı "UNIQUE constraint failed" hatası veriyordu.
     # users.email UNIQUE olduğu için INSERT OR IGNORE atomik olarak güvenli.
     try:
-        ilk_sifre = os.environ.get('ADMIN_INITIAL_PASSWORD', 'Admin123!')
+        ilk_sifre = os.environ.get('ADMIN_INITIAL_PASSWORD', 'Admin12345!')
         hashed_pw = generate_password_hash(ilk_sifre)
         cursor.execute(
             "INSERT OR IGNORE INTO users (ad_soyad, email, password_hash, is_admin, plan_type) VALUES (?, ?, ?, 1, 'pro')",
