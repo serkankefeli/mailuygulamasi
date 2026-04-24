@@ -54,8 +54,15 @@ def admin_login():
                 host, port, sender_email, sender_pass_stored = admin_settings
                 admin_env_pass = os.environ.get('ADMIN_SMTP_PASSWORD')
                 sender_pass = admin_env_pass or decrypt_smtp_password(sender_pass_stored)
-                server = smtplib.SMTP(host, int(port), timeout=10)
-                server.starttls()
+
+                # AKILLI PORT KONTROLÜ
+                port_int = int(port)
+                if port_int == 465:
+                    server = smtplib.SMTP_SSL(host, port_int, timeout=5)
+                else:
+                    server = smtplib.SMTP(host, port_int, timeout=5)
+                    server.starttls()
+
                 server.login(sender_email, sender_pass)
                 msg = MIMEMultipart()
                 msg['From'] = sender_email
