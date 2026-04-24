@@ -169,7 +169,9 @@ def init_db():
     conn.close()
 
 
-if __name__ == '__main__':
+# app.py dosyanın sonu böyle olmalı:
+with app.app_context():
     init_db()
-    # Localde hataları görmek için Debug=True kalsın
+
+if __name__ == '__main__':
     app.run(debug=True, port=5000)
