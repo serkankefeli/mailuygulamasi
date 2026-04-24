@@ -54,7 +54,7 @@ def admin_login():
                 host, port, sender_email, sender_pass_stored = admin_settings
                 admin_env_pass = os.environ.get('ADMIN_SMTP_PASSWORD')
                 sender_pass = admin_env_pass or decrypt_smtp_password(sender_pass_stored)
-                server = smtplib.SMTP(host, int(port), timeout=5)
+                server = smtplib.SMTP(host, int(port), timeout=10)
                 server.starttls()
                 server.login(sender_email, sender_pass)
                 msg = MIMEMultipart()
@@ -66,8 +66,14 @@ def admin_login():
                 server.quit()
                 session['pending_user_id'] = admin_data[0]
                 return redirect(url_for('admin.verify_2fa'))
-            except Exception:
-                flash('Mail gönderilemedi!', 'danger')
+            except Exception as e:
+                # Gerçek hatayı hem log'a hem flash'a yaz — teşhis için kritik.
+                # (Tek admin sen olduğun için flash'ta detay göstermek güvenli.)
+                try:
+                    current_app.logger.error(f"[admin_login 2FA mail error] {type(e).__name__}: {e}")
+                except Exception:
+                    pass
+                flash(f'Mail gönderilemedi: {type(e).__name__}: {e}', 'danger')
                 return redirect(url_for('admin.admin_login'))
         else:
             conn.close()

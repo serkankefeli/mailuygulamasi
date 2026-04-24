@@ -249,6 +249,95 @@ def save_settings():
     return redirect(url_for('main.settings_page'))
 
 
+@main_bp.route('/test_smtp', methods=['POST'])
+@login_required
+def test_smtp():
+    """
+    Ayarlar sayfasındaki 'Test Et' butonu buraya POST eder.
+    Formdaki (henüz kaydedilmemiş) SMTP bilgileri ile gerçek bir bağlantı
+    kurup, login dener ve varsa gönderici adresine 1 test maili atar.
+    Başarı/başarısızlık durumunu JSON olarak döndürür — UI bunu gösterir.
+    """
+    import smtplib
+    from email.mime.text import MIMEText
+    from email.mime.multipart import MIMEMultipart
+
+    if 'temp_user_email' in session:
+        return jsonify({'ok': False, 'error': '2FA doğrulaması bekleniyor.'}), 403
+
+    host = (request.form.get('smtp_host') or '').strip()
+    port_str = (request.form.get('smtp_port') or '').strip()
+    user_email = (request.form.get('smtp_user') or '').strip()
+    password = (request.form.get('smtp_pass') or '').strip()
+
+    if not (host and port_str and user_email):
+        return jsonify({'ok': False, 'error': 'Host, port ve e-posta zorunlu.'}), 400
+
+    # Şifre boş ise kayıtlı (şifrelenmiş) şifreyi kullanmaya çalış.
+    if not password:
+        try:
+            from extensions import decrypt_smtp_password
+            conn = sqlite3.connect(DB_NAME)
+            cur = conn.cursor()
+            cur.execute("SELECT password FROM settings WHERE user_id=?", (current_user.id,))
+            row = cur.fetchone()
+            conn.close()
+            if row and row[0]:
+                password = decrypt_smtp_password(row[0]) or ''
+        except Exception:
+            password = ''
+
+    if not password:
+        # Son çare: adminse .env'deki ADMIN_SMTP_PASSWORD
+        if getattr(current_user, 'is_admin', 0) == 1:
+            password = os.environ.get('ADMIN_SMTP_PASSWORD', '') or ''
+
+    if not password:
+        return jsonify({'ok': False, 'error': 'Şifre boş — form alanına yazın ya da önce kaydedin.'}), 400
+
+    try:
+        port = int(port_str)
+    except ValueError:
+        return jsonify({'ok': False, 'error': f'Port geçersiz: {port_str!r}'}), 400
+
+    # Adım adım test ediyoruz ki hangi aşamada patladığı net görünsün.
+    stage = 'connect'
+    try:
+        server = smtplib.SMTP(host, port, timeout=10)
+        stage = 'starttls'
+        server.starttls()
+        stage = 'login'
+        server.login(user_email, password)
+        stage = 'send'
+        msg = MIMEMultipart()
+        msg['From'] = user_email
+        msg['To'] = user_email  # kendimize atalım — inbox'a düşerse tam yeşil ışık
+        msg['Subject'] = "MailKamp SMTP Test"
+        msg.attach(MIMEText(
+            "Bu bir SMTP test mailidir. Bu mail geldiyse SMTP ayarlarınız doğru çalışıyor.",
+            'plain', 'utf-8'))
+        server.send_message(msg)
+        server.quit()
+        return jsonify({
+            'ok': True,
+            'message': f'✓ Başarılı — {user_email} adresine test maili gönderildi. Inbox/Spam klasörünü kontrol edin.'
+        })
+    except smtplib.SMTPAuthenticationError as e:
+        return jsonify({
+            'ok': False,
+            'stage': stage,
+            'error': f'Kimlik doğrulama hatası (SMTPAuthenticationError). Gmail için "App Password" kullanmalısınız (2FA açık olmalı). Detay: {e}'
+        }), 200
+    except smtplib.SMTPConnectError as e:
+        return jsonify({'ok': False, 'stage': stage, 'error': f'Sunucuya bağlanılamadı: {e}'}), 200
+    except smtplib.SMTPException as e:
+        return jsonify({'ok': False, 'stage': stage, 'error': f'SMTP hatası ({type(e).__name__}): {e}'}), 200
+    except (TimeoutError, socket.timeout) as e:
+        return jsonify({'ok': False, 'stage': stage, 'error': f'Zaman aşımı ({stage}): port açık değil veya firewall engelliyor olabilir.'}), 200
+    except Exception as e:
+        return jsonify({'ok': False, 'stage': stage, 'error': f'{type(e).__name__}: {e}'}), 200
+
+
 @main_bp.route('/add_blacklist', methods=['POST'])
 @login_required
 def add_blacklist():
@@ -329,99 +418,40 @@ def bulk_delete_contacts():
 
     if not contact_ids:
         flash('Lütfen silinecek kişileri seçin.', 'warning')
-        return redirect(url_for('main.contacts'))
+        return redirect(url_for('main.contacts'))  # Eksik parantez eklendi
 
     conn = sqlite3.connect(DB_NAME)
     cursor = conn.cursor()
 
     try:
-        # Güvenlik: Sadece mevcut kullanıcıya ait olan ID'leri sil
-        placeholders = ', '.join(['?'] * len(contact_ids))
+        # SQL Injection'a karşı placeholder (?, ?, ?) oluşturuyoruz
+        placeholders = ','.join('?' for _ in contact_ids)
 
-        # 1. Önce grup ilişkilerini sil
-        cursor.execute(f"DELETE FROM contact_group_rel WHERE contact_id IN ({placeholders})", contact_ids)
+        # Güvenlik: Kullanıcının sadece kendi rehberindeki ID'leri silebilmesi için current_user.id ekliyoruz
+        query_params = tuple(contact_ids) + (current_user.id,)
 
-        # 2. Sonra kişileri sil (User_id kontrolü ile)
-        cursor.execute(f"DELETE FROM contacts WHERE id IN ({placeholders}) AND user_id = ?",
-                       (*contact_ids, current_user.id))
+        # 1. Önce bu kişileri bağlı oldukları gruplardan (ilişki tablosundan) kopar
+        cursor.execute(f"""
+            DELETE FROM contact_group_rel 
+            WHERE contact_id IN ({placeholders}) 
+            AND contact_id IN (SELECT id FROM contacts WHERE user_id = ?)
+        """, query_params)
 
+        # 2. Sonra kişileri rehberden (ana tablodan) tamamen sil
+        cursor.execute(f"""
+            DELETE FROM contacts 
+            WHERE id IN ({placeholders}) AND user_id = ?
+        """, query_params)
+
+        # Silinen kişi sayısını al ve işlemi onayla
+        deleted_count = cursor.rowcount
         conn.commit()
-        flash(f'{len(contact_ids)} kişi başarıyla silindi.', 'success')
+        flash(f'{deleted_count} kişi rehberden başarıyla silindi.', 'success')
+
     except Exception as e:
         conn.rollback()
-        flash('Toplu silme sırasında bir hata oluştu.', 'danger')
+        flash('Toplu silme işlemi sırasında bir hata oluştu.', 'danger')
     finally:
         conn.close()
 
     return redirect(url_for('main.contacts'))
-
-@main_bp.route('/save_template', methods=['POST'])
-@login_required
-@premium_required
-def save_template():
-    if 'temp_user_email' in session: return redirect(url_for('auth.verify_2fa'))
-    name, subject, body = request.form.get('template_name'), request.form.get('subject'), request.form.get('body')
-    if name and subject and body:
-        conn = sqlite3.connect(DB_NAME)
-        cursor = conn.cursor()
-        cursor.execute("INSERT INTO templates (user_id, template_name, subject, body) VALUES (?, ?, ?, ?)",
-                       (current_user.id, name, subject, body))
-        conn.commit()
-        conn.close()
-        flash('Şablon kaydedildi!', 'success')
-    return redirect(url_for('main.dashboard'))
-
-
-@main_bp.route('/api/get_template/<int:tpl_id>')
-@login_required
-def get_template(tpl_id):
-    if 'temp_user_email' in session: return jsonify({'error': '2FA Required'}), 403
-    conn = sqlite3.connect(DB_NAME)
-    cursor = conn.cursor()
-    cursor.execute("SELECT subject, body FROM templates WHERE id=? AND user_id=?", (tpl_id, current_user.id))
-    tpl = cursor.fetchone()
-    conn.close()
-    if tpl: return jsonify({'subject': tpl[0], 'body': tpl[1]})
-    return jsonify({'error': 'Bulunamadi'}), 404
-
-
-@main_bp.route('/delete_template/<int:tpl_id>', methods=['POST'])
-@login_required
-def delete_template(tpl_id):
-    if 'temp_user_email' in session: return redirect(url_for('auth.verify_2fa'))
-    conn = sqlite3.connect(DB_NAME)
-    cursor = conn.cursor()
-    cursor.execute("DELETE FROM templates WHERE id=? AND user_id=?", (tpl_id, current_user.id))
-    conn.commit()
-    conn.close()
-    return redirect(url_for('main.dashboard'))
-
-
-@main_bp.route('/upgrade', methods=['GET', 'POST'])
-@login_required
-def upgrade():
-    if 'temp_user_email' in session: return redirect(url_for('auth.verify_2fa'))
-    conn = sqlite3.connect(DB_NAME)
-    cursor = conn.cursor()
-    if request.method == 'POST':
-        if request.form.get('contract_accepted'):
-            cursor.execute("UPDATE users SET contract_accepted=1, contract_accepted_date=? WHERE id=?",
-                           (datetime.now().strftime("%Y-%m-%d %H:%M:%S"), current_user.id))
-        cursor.execute("INSERT INTO upgrade_requests (user_id, talep_tarihi, odeme_metodu) VALUES (?, ?, ?)",
-                       (current_user.id, datetime.now().strftime("%Y-%m-%d %H:%M:%S"), 'Havale/EFT'))
-        conn.commit()
-        conn.close()
-        flash('Ödeme bildiriminiz alındı!', 'success')
-        return redirect(url_for('main.dashboard'))
-
-    cursor.execute("SELECT slug, icerik FROM legal_texts")
-    legal_data = {row[0]: row[1] for row in cursor.fetchall()}
-    cursor.execute("SELECT * FROM payment_settings WHERE id=1")
-    p_settings = cursor.fetchone()
-    conn.close()
-    return render_template('upgrade.html', settings=p_settings, legal=legal_data)
-
-
-@main_bp.route('/uploads/<path:filename>')
-def serve_uploads(filename):
-    return send_from_directory(current_app.config['UPLOAD_FOLDER'], filename)
