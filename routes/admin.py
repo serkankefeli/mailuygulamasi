@@ -217,6 +217,15 @@ def admin_site_settings():
     if current_user.is_admin != 1: return redirect(url_for('main.dashboard'))
     conn = sqlite3.connect(DB_NAME)
     cursor = conn.cursor()
+
+    # --- 🛡️ HAYAT KURTARAN KOD BURASI ---
+    # Eğer tabloda 1 numaralı satır (çekmece) yoksa, önce onu boş olarak yarat!
+    cursor.execute("SELECT id FROM landing_settings WHERE id=1")
+    if not cursor.fetchone():
+        cursor.execute("INSERT INTO landing_settings (id) VALUES (1)")
+        conn.commit()
+    # -------------------------------------
+
     if request.method == 'POST':
         ht = request.form.get('hero_title', '')
         hs = request.form.get('hero_subtitle', '')
@@ -234,17 +243,13 @@ def admin_site_settings():
 
         image_file = request.files.get('hero_image')
 
-        # --- 🛡️ GÜNCELLENEN RESİM YÜKLEME KISMI ---
         if image_file and image_file.filename:
-            # Resmin uzantısını alıyoruz (jpg, png vb.)
             ext = image_file.filename.rsplit('.', 1)[1].lower() if '.' in image_file.filename else 'png'
-            # İsmi tamamen güvenli ve standart bir formata çeviriyoruz
             filename = f"vitrin_gorseli.{ext}"
 
             filepath = os.path.join(current_app.config['UPLOAD_FOLDER'], filename)
             image_file.save(filepath)
             hero_image_path = filename
-        # ------------------------------------------
 
         cursor.execute("""UPDATE landing_settings
                           SET hero_title=?,
