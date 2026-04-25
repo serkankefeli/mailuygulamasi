@@ -216,15 +216,18 @@ def delete_user(id):
 def admin_site_settings():
     if current_user.is_admin != 1: return redirect(url_for('main.dashboard'))
     conn = sqlite3.connect(DB_NAME)
+
+    # --- İŞTE BU SATIR NUMARA KARMAŞASINI BİTİRİR ---
+    conn.row_factory = sqlite3.Row
+    # ------------------------------------------------
+
     cursor = conn.cursor()
 
-    # --- 🛡️ HAYAT KURTARAN KOD BURASI ---
-    # Eğer tabloda 1 numaralı satır (çekmece) yoksa, önce onu boş olarak yarat!
+    # Eğer tabloda 1 numaralı satır yoksa, önce onu boş olarak yarat!
     cursor.execute("SELECT id FROM landing_settings WHERE id=1")
     if not cursor.fetchone():
         cursor.execute("INSERT INTO landing_settings (id) VALUES (1)")
         conn.commit()
-    # -------------------------------------
 
     if request.method == 'POST':
         ht = request.form.get('hero_title', '')
