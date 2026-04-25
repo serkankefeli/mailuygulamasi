@@ -59,3 +59,15 @@ function deleteSingle(id) {
         f.submit();
     }
 }
+// Yükseltme Ekranı: Sözleşme Onay Checkbox Kontrolü
+document.addEventListener("DOMContentLoaded", function() {
+    const checkbox = document.getElementById('sozlesmeCheck');
+    const submitBtn = document.getElementById('bildirBtn');
+
+    // Eğer sayfada bu elementler varsa çalışsın (Diğer sayfalarda hata vermemesi için)
+    if (checkbox && submitBtn) {
+        checkbox.addEventListener('change', function() {
+            submitBtn.disabled = !this.checked;
+        });
+    }
+});
