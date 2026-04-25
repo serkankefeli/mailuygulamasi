@@ -77,8 +77,6 @@ def admin_login():
                 session['pending_user_id'] = admin_data[0]
                 return redirect(url_for('admin.verify_2fa'))
             except Exception as e:
-                # Gerçek hatayı hem log'a hem flash'a yaz — teşhis için kritik.
-                # (Tek admin sen olduğun için flash'ta detay göstermek güvenli.)
                 try:
                     current_app.logger.error(f"[admin_login 2FA mail error] {type(e).__name__}: {e}")
                 except Exception:
@@ -89,6 +87,7 @@ def admin_login():
             conn.close()
             flash('Yetkisiz giriş!', 'danger')
     return render_template('admin_login.html')
+
 
 @admin_bp.route('/verify', methods=['GET', 'POST'])
 @limiter.limit("10 per minute; 30 per hour", methods=["POST"])
@@ -228,15 +227,25 @@ def admin_site_settings():
         ga = request.form.get('ga_id', '').strip()
         lu = request.form.get('looker_url', '').strip()
         promo_video = request.form.get('promo_video', '').strip()
+
         cursor.execute("SELECT hero_image FROM landing_settings WHERE id=1")
         mevcut_resim = cursor.fetchone()
         hero_image_path = mevcut_resim[0] if mevcut_resim and mevcut_resim[0] else ""
+
         image_file = request.files.get('hero_image')
+
+        # --- 🛡️ GÜNCELLENEN RESİM YÜKLEME KISMI ---
         if image_file and image_file.filename:
-            filename = secure_filename(image_file.filename)
+            # Resmin uzantısını alıyoruz (jpg, png vb.)
+            ext = image_file.filename.rsplit('.', 1)[1].lower() if '.' in image_file.filename else 'png'
+            # İsmi tamamen güvenli ve standart bir formata çeviriyoruz
+            filename = f"vitrin_gorseli.{ext}"
+
             filepath = os.path.join(current_app.config['UPLOAD_FOLDER'], filename)
             image_file.save(filepath)
             hero_image_path = filename
+        # ------------------------------------------
+
         cursor.execute("""UPDATE landing_settings
                           SET hero_title=?,
                               hero_subtitle=?,
@@ -255,6 +264,7 @@ def admin_site_settings():
                        (ht, hs, f1t, f1d, f2t, f2d, f3t, f3d, ft, ga, lu, hero_image_path, promo_video))
         conn.commit()
         flash('Site, Medya ve SEO ayarları başarıyla güncellendi!', 'success')
+
     cursor.execute("SELECT * FROM landing_settings WHERE id=1")
     landing = cursor.fetchone()
     conn.close()
@@ -291,15 +301,14 @@ def payment_management():
     if request.method == 'POST':
         metotlar = ",".join(request.form.getlist('methods'))
         iban = request.form['iban']
-        banka = request.form.get('banka', '').strip()  # Banka adını aldık
-        hesap_sahibi = request.form.get('hesap_sahibi', '').strip()  # Hesap sahibini aldık
+        banka = request.form.get('banka', '').strip()
+        hesap_sahibi = request.form.get('hesap_sahibi', '').strip()
         price = request.form['price']
         paytr_id = request.form.get('paytr_id', '').strip()
         paytr_key = request.form.get('paytr_key', '').strip()
         iyzico_key = request.form.get('iyzico_key', '').strip()
         iyzico_secret = request.form.get('iyzico_secret', '').strip()
 
-        # SQL SORGUSU GÜNCELLENDİ: banka_adi ve hesap_sahibi eklendi
         cursor.execute("""UPDATE payment_settings
                           SET active_methods=?,
                               iban_no=?,

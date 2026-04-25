@@ -58,16 +58,14 @@ def is_safe_webhook_url(url):
 def index():
     if 'temp_user_email' in session: return redirect(url_for('auth.verify_2fa'))
     if current_user.is_authenticated: return redirect(url_for('main.dashboard'))
-
     conn = sqlite3.connect(DB_NAME)
-    # BÜTÜN SORUNU ÇÖZEN SATIR BURASI! (Sütun isimleriyle çağırmayı açar)
-    conn.row_factory = sqlite3.Row
     cursor = conn.cursor()
-
     cursor.execute("SELECT * FROM landing_settings WHERE id=1")
     landing = cursor.fetchone()
     conn.close()
     return render_template('index.html', landing=landing)
+
+
 @main_bp.route('/dashboard')
 @login_required
 def dashboard():
@@ -421,101 +419,4 @@ def upload_logo():
 @login_required
 def bulk_delete_contacts():
     # Formdan seçilen ID listesini al
-    contact_ids = request.form.getlist('contact_ids')
-
-    if not contact_ids:
-        flash('Lütfen silinecek kişileri seçin.', 'warning')
-        return redirect(url_for('main.contacts'))  # Eksik parantez eklendi
-
-    conn = sqlite3.connect(DB_NAME)
-    cursor = conn.cursor()
-
-    try:
-        # SQL Injection'a karşı placeholder (?, ?, ?) oluşturuyoruz
-        placeholders = ','.join('?' for _ in contact_ids)
-
-        # Güvenlik: Kullanıcının sadece kendi rehberindeki ID'leri silebilmesi için current_user.id ekliyoruz
-        query_params = tuple(contact_ids) + (current_user.id,)
-
-        # 1. Önce bu kişileri bağlı oldukları gruplardan (ilişki tablosundan) kopar
-        cursor.execute(f"""
-            DELETE FROM contact_group_rel 
-            WHERE contact_id IN ({placeholders}) 
-            AND contact_id IN (SELECT id FROM contacts WHERE user_id = ?)
-        """, query_params)
-
-        # 2. Sonra kişileri rehberden (ana tablodan) tamamen sil
-        cursor.execute(f"""
-            DELETE FROM contacts 
-            WHERE id IN ({placeholders}) AND user_id = ?
-        """, query_params)
-
-        # Silinen kişi sayısını al ve işlemi onayla
-        deleted_count = cursor.rowcount
-        conn.commit()
-        flash(f'{deleted_count} kişi rehberden başarıyla silindi.', 'success')
-
-    except Exception as e:
-        conn.rollback()
-        flash('Toplu silme işlemi sırasında bir hata oluştu.', 'danger')
-    finally:
-        conn.close()
-
-    return redirect(url_for('main.contacts'))
-
-
-@main_bp.route('/upgrade', methods=['GET', 'POST'])
-@login_required
-def upgrade():
-    # 2FA Kontrolü
-    if 'temp_user_email' in session:
-        return redirect(url_for('auth.verify_2fa'))
-
-    conn = sqlite3.connect(DB_NAME)
-    conn.row_factory = sqlite3.Row
-    cursor = conn.cursor()
-
-    # EĞER KULLANICI FORMU DOLDURUP "TALEP ET" BUTONUNA BASTIYSA:
-    if request.method == 'POST':
-        odeme_metodu = request.form.get('odeme_metodu', 'Havale/EFT')
-        from datetime import datetime
-        tarih = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-
-        cursor.execute(
-            "INSERT INTO upgrade_requests (user_id, talep_tarihi, odeme_metodu, durum) VALUES (?, ?, ?, 'Bekliyor')",
-            (current_user.id, tarih, odeme_metodu)
-        )
-        conn.commit()
-        conn.close()
-        flash('Yükseltme talebiniz yöneticiye iletildi! İşleminiz en kısa sürede onaylanacaktır.', 'success')
-        return redirect(url_for('main.dashboard'))
-
-    # GET REQUEST: Fiyatları Çek
-    cursor.execute("SELECT * FROM payment_settings LIMIT 1")
-    settings = cursor.fetchone()
-
-    # SÖZLEŞMELERİ ÇEK (İşte hatayı çözen kısım!)
-    cursor.execute("SELECT slug, icerik FROM legal_texts")
-    legal_data = cursor.fetchall()
-
-    legal = {}
-    # Veritabanındaki sözleşmeleri HTML'in beklediği isme çeviriyoruz
-    for row in legal_data:
-        if 'mesafeli' in row['slug']:
-            legal['mesafeli_satis'] = row['icerik']
-        elif 'kullanim' in row['slug']:
-            legal['kullanim_kosullari'] = row['icerik']
-        else:
-            legal[row['slug']] = row['icerik']
-
-    conn.close()
-
-    # Hem settings'i hem de legal'i (sözleşmeleri) sayfaya yolluyoruz
-    return render_template('upgrade.html', settings=settings, legal=legal)
-
-from flask import send_from_directory
-
-@main_bp.route('/uploads/<path:filename>')
-def serve_uploads(filename):
-    # 'uploads' klasöründeki dosyayı alıp ekranda gösterir
-    return send_from_directory(current_app.config['UPLOAD_FOLDER'], filename)
+    contact_ids = request.form.getlist('conta

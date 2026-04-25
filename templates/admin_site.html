@@ -4,20 +4,20 @@
 
     <ul class="nav nav-pills shadow-sm p-3 mb-4 bg-white rounded">
         <li class="nav-item">
-            <a class="nav-link text-dark" href="{{ url_for('admin_users') }}"><i class="fas fa-users"></i> Kullanıcı Yönetimi</a>
+            <a class="nav-link text-dark" href="{{ url_for('admin.admin_users') }}"><i class="fas fa-users"></i> Kullanıcı Yönetimi</a>
         </li>
         <li class="nav-item ms-2">
-            <a class="nav-link text-dark" href="{{ url_for('payment_management') }}"><i class="fas fa-wallet"></i> Ödeme Yönetimi</a>
+            <a class="nav-link text-dark" href="{{ url_for('admin.payment_management') }}"><i class="fas fa-wallet"></i> Ödeme Yönetimi</a>
         </li>
         <li class="nav-item ms-2">
-            <a class="nav-link active bg-info text-dark fw-bold" href="{{ url_for('admin_site_settings') }}"><i class="fas fa-globe"></i> Site & Analiz</a>
+            <a class="nav-link active bg-info text-dark fw-bold" href="{{ url_for('admin.admin_site_settings') }}"><i class="fas fa-globe"></i> Site & Analiz</a>
         </li>
         <li class="nav-item ms-auto">
-            <a class="nav-link text-secondary" href="{{ url_for('dashboard') }}"><i class="fas fa-arrow-left"></i> Panoya Dön</a>
+            <a class="nav-link text-secondary" href="{{ url_for('main.dashboard') }}"><i class="fas fa-arrow-left"></i> Panoya Dön</a>
         </li>
     </ul>
 
-    <form action="{{ url_for('admin_site_settings') }}" method="POST" enctype="multipart/form-data">
+    <form action="{{ url_for('admin.admin_site_settings') }}" method="POST" enctype="multipart/form-data">
 
         <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
 
@@ -38,8 +38,9 @@
                             <h6 class="text-success fw-bold"><i class="fas fa-photo-video"></i> Görsel & Video Ayarları</h6>
                             <label class="form-label small fw-bold mt-2">Tanıtım Görseli Yükle (Sağ Tarafta Çıkar)</label>
                             <input type="file" name="hero_image" class="form-control mb-2" accept="image/*">
-                            {% if landing[12] %}
-                            <small class="text-success d-block mb-3"><i class="fas fa-check"></i> Şu an bir görsel yüklü.</small>
+
+                            {% if landing[3] %}
+                            <small class="text-success d-block mb-3"><i class="fas fa-check"></i> Şu an bir görsel yüklü: {{ landing[3] }}</small>
                             {% endif %}
 
                             <label class="form-label small fw-bold mt-2">VEYA YouTube Tanıtım Videosu Linki</label>
@@ -48,19 +49,19 @@
                         </div>
 
                         <h6 class="text-primary fw-bold border-bottom pb-2">1. Özellik (Sol)</h6>
-                        <input type="text" name="f1_title" class="form-control mb-2 fw-bold" value="{{ landing[3] }}">
-                        <textarea name="f1_desc" class="form-control mb-4" rows="2">{{ landing[4] }}</textarea>
+                        <input type="text" name="f1_title" class="form-control mb-2 fw-bold" value="{{ landing[4] }}">
+                        <textarea name="f1_desc" class="form-control mb-4" rows="2">{{ landing[5] }}</textarea>
 
                         <h6 class="text-primary fw-bold border-bottom pb-2">2. Özellik (Orta)</h6>
-                        <input type="text" name="f2_title" class="form-control mb-2 fw-bold" value="{{ landing[5] }}">
-                        <textarea name="f2_desc" class="form-control mb-4" rows="2">{{ landing[6] }}</textarea>
+                        <input type="text" name="f2_title" class="form-control mb-2 fw-bold" value="{{ landing[6] }}">
+                        <textarea name="f2_desc" class="form-control mb-4" rows="2">{{ landing[7] }}</textarea>
 
                         <h6 class="text-primary fw-bold border-bottom pb-2">3. Özellik (Sağ)</h6>
-                        <input type="text" name="f3_title" class="form-control mb-2 fw-bold" value="{{ landing[7] }}">
-                        <textarea name="f3_desc" class="form-control mb-4" rows="2">{{ landing[8] }}</textarea>
+                        <input type="text" name="f3_title" class="form-control mb-2 fw-bold" value="{{ landing[8] }}">
+                        <textarea name="f3_desc" class="form-control mb-4" rows="2">{{ landing[9] }}</textarea>
 
                         <h6 class="text-primary fw-bold border-bottom pb-2">Footer (Alt Bilgi)</h6>
-                        <input type="text" name="footer_text" class="form-control mb-2" value="{{ landing[9] }}">
+                        <input type="text" name="footer_text" class="form-control mb-2" value="{{ landing[10] }}">
 
                     </div>
                 </div>
@@ -73,11 +74,11 @@
                     </div>
                     <div class="card-body bg-light">
                         <label class="form-label fw-bold">1. GA İzleme Kimliği (Measurement ID)</label>
-                        <input type="text" name="ga_id" class="form-control mb-2 font-monospace" value="{{ landing[10] if landing[10] else '' }}" placeholder="G-XXXXXXXXXX">
+                        <input type="text" name="ga_id" class="form-control mb-2 font-monospace" value="{{ landing[11] if landing[11] else '' }}" placeholder="G-XXXXXXXXXX">
                         <small class="text-muted d-block mb-4">Bunu girdiğinizde Analytics kodu otomatik olarak siteye eklenir.</small>
 
                         <label class="form-label fw-bold">2. Google Looker Studio Gömme Linki (Opsiyonel)</label>
-                        <input type="text" name="looker_url" class="form-control mb-2 font-monospace" value="{{ landing[11] if landing[11] else '' }}" placeholder="https://lookerstudio.google.com/embed/reporting/...">
+                        <input type="text" name="looker_url" class="form-control mb-2 font-monospace" value="{{ landing[12] if landing[12] else '' }}" placeholder="https://lookerstudio.google.com/embed/reporting/...">
                         <small class="text-muted d-block mb-4">Analytics verilerinizi bu panele yansıtmak için Looker Studio embed linkini buraya yapıştırın.</small>
 
                         <hr>
@@ -87,11 +88,11 @@
                     </div>
                 </div>
 
-                {% if landing[11] %}
+                {% if landing[12] %}
                 <div class="card shadow-sm border-0">
                     <div class="card-header bg-dark text-white"><i class="fas fa-tv"></i> Canlı Ziyaretçi Raporu</div>
                     <div class="card-body p-0" style="height: 400px;">
-                        <iframe src="{{ landing[11] }}" frameborder="0" style="border:0; width:100%; height:100%;" allowfullscreen></iframe>
+                        <iframe src="{{ landing[12] }}" frameborder="0" style="border:0; width:100%; height:100%;" allowfullscreen></iframe>
                     </div>
                 </div>
                 {% else %}
