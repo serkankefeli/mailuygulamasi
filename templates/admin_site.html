@@ -31,37 +31,36 @@
                     <div class="card-body">
 
                         <h6 class="text-primary fw-bold border-bottom pb-2">Ana Karşılama (Hero)</h6>
-                        <input type="text" name="hero_title" class="form-control mb-2 fw-bold" value="{{ landing[1] }}" placeholder="Büyük Başlık">
-                        <textarea name="hero_subtitle" class="form-control mb-3" rows="2" placeholder="Alt Açıklama">{{ landing[2] }}</textarea>
+                        <input type="text" name="hero_title" class="form-control mb-2 fw-bold" value="{{ landing['hero_title'] if landing['hero_title'] else '' }}" placeholder="Büyük Başlık">
+                        <textarea name="hero_subtitle" class="form-control mb-3" rows="2" placeholder="Alt Açıklama">{{ landing['hero_subtitle'] if landing['hero_subtitle'] else '' }}</textarea>
 
                         <div class="p-3 bg-light rounded border mb-4">
                             <h6 class="text-success fw-bold"><i class="fas fa-photo-video"></i> Görsel & Video Ayarları</h6>
-                            <label class="form-label small fw-bold mt-2">Tanıtım Görseli Yükle (Sağ Tarafta Çıkar)</label>
+                            <label class="form-label small fw-bold mt-2">Tanıtım Görseli Yükle</label>
                             <input type="file" name="hero_image" class="form-control mb-2" accept="image/*">
 
-                            {% if landing[3] %}
-                            <small class="text-success d-block mb-3"><i class="fas fa-check"></i> Şu an bir görsel yüklü: {{ landing[3] }}</small>
+                            {% if landing['hero_image'] %}
+                            <small class="text-success d-block mb-3"><i class="fas fa-check"></i> Şu an yüklü: {{ landing['hero_image'] }}</small>
                             {% endif %}
 
                             <label class="form-label small fw-bold mt-2">VEYA YouTube Tanıtım Videosu Linki</label>
-                            <input type="url" name="promo_video" class="form-control" value="{{ landing[13] if landing[13] else '' }}" placeholder="https://www.youtube.com/embed/XXXXXX">
-                            <small class="text-muted text-warning">Not: Video linki girilirse, yüklü görsel yerine video gösterilir.</small>
+                            <input type="url" name="promo_video" class="form-control" value="{{ landing['promo_video'] if landing['promo_video'] else '' }}" placeholder="https://www.youtube.com/embed/XXXXXX">
                         </div>
 
                         <h6 class="text-primary fw-bold border-bottom pb-2">1. Özellik (Sol)</h6>
-                        <input type="text" name="f1_title" class="form-control mb-2 fw-bold" value="{{ landing[4] }}">
-                        <textarea name="f1_desc" class="form-control mb-4" rows="2">{{ landing[5] }}</textarea>
+                        <input type="text" name="f1_title" class="form-control mb-2 fw-bold" value="{{ landing['f1_title'] if landing['f1_title'] else '' }}">
+                        <textarea name="f1_desc" class="form-control mb-4" rows="2">{{ landing['f1_desc'] if landing['f1_desc'] else '' }}</textarea>
 
                         <h6 class="text-primary fw-bold border-bottom pb-2">2. Özellik (Orta)</h6>
-                        <input type="text" name="f2_title" class="form-control mb-2 fw-bold" value="{{ landing[6] }}">
-                        <textarea name="f2_desc" class="form-control mb-4" rows="2">{{ landing[7] }}</textarea>
+                        <input type="text" name="f2_title" class="form-control mb-2 fw-bold" value="{{ landing['f2_title'] if landing['f2_title'] else '' }}">
+                        <textarea name="f2_desc" class="form-control mb-4" rows="2">{{ landing['f2_desc'] if landing['f2_desc'] else '' }}</textarea>
 
                         <h6 class="text-primary fw-bold border-bottom pb-2">3. Özellik (Sağ)</h6>
-                        <input type="text" name="f3_title" class="form-control mb-2 fw-bold" value="{{ landing[8] }}">
-                        <textarea name="f3_desc" class="form-control mb-4" rows="2">{{ landing[9] }}</textarea>
+                        <input type="text" name="f3_title" class="form-control mb-2 fw-bold" value="{{ landing['f3_title'] if landing['f3_title'] else '' }}">
+                        <textarea name="f3_desc" class="form-control mb-4" rows="2">{{ landing['f3_desc'] if landing['f3_desc'] else '' }}</textarea>
 
                         <h6 class="text-primary fw-bold border-bottom pb-2">Footer (Alt Bilgi)</h6>
-                        <input type="text" name="footer_text" class="form-control mb-2" value="{{ landing[10] }}">
+                        <input type="text" name="footer_text" class="form-control mb-2" value="{{ landing['footer_text'] if landing['footer_text'] else '' }}">
 
                     </div>
                 </div>
@@ -74,12 +73,10 @@
                     </div>
                     <div class="card-body bg-light">
                         <label class="form-label fw-bold">1. GA İzleme Kimliği (Measurement ID)</label>
-                        <input type="text" name="ga_id" class="form-control mb-2 font-monospace" value="{{ landing[11] if landing[11] else '' }}" placeholder="G-XXXXXXXXXX">
-                        <small class="text-muted d-block mb-4">Bunu girdiğinizde Analytics kodu otomatik olarak siteye eklenir.</small>
+                        <input type="text" name="ga_id" class="form-control mb-2 font-monospace" value="{{ landing['ga_id'] if landing['ga_id'] else '' }}" placeholder="G-XXXXXXXXXX">
 
-                        <label class="form-label fw-bold">2. Google Looker Studio Gömme Linki (Opsiyonel)</label>
-                        <input type="text" name="looker_url" class="form-control mb-2 font-monospace" value="{{ landing[12] if landing[12] else '' }}" placeholder="https://lookerstudio.google.com/embed/reporting/...">
-                        <small class="text-muted d-block mb-4">Analytics verilerinizi bu panele yansıtmak için Looker Studio embed linkini buraya yapıştırın.</small>
+                        <label class="form-label fw-bold">2. Google Looker Studio Gömme Linki</label>
+                        <input type="text" name="looker_url" class="form-control mb-2 font-monospace" value="{{ landing['looker_url'] if landing['looker_url'] else '' }}" placeholder="https://lookerstudio.google.com/embed/reporting/...">
 
                         <hr>
                         <div class="d-grid mt-3">
@@ -87,20 +84,6 @@
                         </div>
                     </div>
                 </div>
-
-                {% if landing[12] %}
-                <div class="card shadow-sm border-0">
-                    <div class="card-header bg-dark text-white"><i class="fas fa-tv"></i> Canlı Ziyaretçi Raporu</div>
-                    <div class="card-body p-0" style="height: 400px;">
-                        <iframe src="{{ landing[12] }}" frameborder="0" style="border:0; width:100%; height:100%;" allowfullscreen></iframe>
-                    </div>
-                </div>
-                {% else %}
-                <div class="alert alert-secondary text-center shadow-sm">
-                    <i class="fas fa-chart-area fa-3x mb-2 opacity-50 mt-3"></i><br>
-                    Looker Studio linki eklendiğinde rapor burada görünecektir.
-                </div>
-                {% endif %}
             </div>
 
         </div>
