@@ -11,29 +11,20 @@
                 <div class="card-body p-5">
 
                     <div class="text-center mb-4">
-                        <h1 class="display-4 fw-bold text-success">₺{{ settings['pro_price'] }} <span class="fs-6 text-muted fw-normal">/ Yıllık</span></h1>
+                        <h1 class="display-4 fw-bold text-success">₺{{ settings[5] }} <span class="fs-6 text-muted fw-normal">/ Yıllık</span></h1>
                     </div>
 
                     <div class="alert alert-info border-0 bg-light text-dark">
                         <h5 class="fw-bold mb-3"><i class="fas fa-university text-primary"></i> Havale / EFT Bilgileri</h5>
-                        <p class="mb-1"><strong>Banka:</strong> {{ settings['banka_adi'] }}</p>
-                        <p class="mb-1"><strong>Hesap Sahibi:</strong> {{ settings['hesap_sahibi'] }}</p>
-                        <p class="mb-0 fs-5 font-monospace text-primary"><strong>TR{{ settings['iban_no'] }}</strong></p>
+                        <p class="mb-1"><strong>Banka:</strong> {{ settings[3] }}</p>
+                        <p class="mb-1"><strong>Hesap Sahibi:</strong> {{ settings[4] }}</p>
+                        <p class="mb-0 fs-5 font-monospace text-primary"><strong>TR{{ settings[2] }}</strong></p>
                     </div>
 
                     <p class="text-muted text-center small mb-4">
                         * Lütfen açıklamaya kayıtlı e-posta adresinizi yazmayı unutmayın.
                     </p>
 
-                    {% if 'paytr' in settings['active_methods'] or 'iyzico' in settings['active_methods'] or 'PayTR' in settings['active_methods'] %}
-                    <div class="d-grid gap-2 mb-3">
-                        <button class="btn btn-primary btn-lg" disabled>
-                            <i class="fas fa-credit-card"></i> Kredi Kartı ile Öde (Çok Yakında)
-                        </button>
-                    </div>
-                    {% endif %}
-
-                    {% if 'havale' in settings['active_methods'] or 'Havale' in settings['active_methods'] %}
                     <hr class="my-4">
 
                     <form action="{{ url_for('main.upgrade') }}" method="POST" class="p-4 border rounded shadow-sm bg-white">
@@ -49,7 +40,7 @@
                         </div>
 
                         <div class="form-check mb-4" style="background: #fdfdfe; padding: 10px 10px 10px 35px; border: 1px dashed #dee2e6; border-radius: 6px;">
-                            <input class="form-check-input" type="checkbox" id="contractCheck" name="contract_accepted" onchange="document.getElementById('notifyBtn').disabled = !this.checked" style="transform: scale(1.2); cursor: pointer;">
+                            <input class="form-check-input" type="checkbox" id="contractCheck" name="contract_accepted" style="transform: scale(1.2); cursor: pointer;">
                             <label class="form-check-label small ms-1" for="contractCheck" style="cursor: pointer;">
                                 <a href="#" data-bs-toggle="modal" data-bs-target="#sozlesmeModal" class="fw-bold text-decoration-none">Mesafeli Satış Sözleşmesi</a>'ni ve <a href="#" data-bs-toggle="modal" data-bs-target="#kullanimModal" class="fw-bold text-decoration-none">Kullanım Koşulları</a>'nı okudum, kabul ediyorum.
                             </label>
@@ -59,7 +50,6 @@
                             <i class="fa-solid fa-paper-plane me-2"></i>Ödemeyi Yaptığımı Bildir
                         </button>
                     </form>
-                    {% endif %}
 
                 </div>
             </div>
@@ -76,14 +66,8 @@
       </div>
       <div class="modal-body text-muted" style="font-size: 0.9rem;">
         <div class="mb-4">
-            {{ legal['mesafeli_satis'] | safe if legal and 'mesafeli_satis' in legal else '' }}
+            {{ legal['mesafeli_satis'] | safe if legal and 'mesafeli_satis' in legal else 'Sözleşme henüz yüklenmedi.' }}
         </div>
-        <h6>1. TARAFLAR</h6>
-        <p>İşbu sözleşme, hizmeti sağlayan <strong>EST Yazılım ve Bilişim Teknolojileri Limited Şirketi</strong> ile MailKamp sistemini kullanan Müşteri arasında elektronik ortamda onaylanmıştır.</p>
-        <h6>2. KONU</h6>
-        <p>İşbu sözleşmenin konusu, Müşteri'nin MailKamp platformu üzerinden satın aldığı Yıllık PRO paket lisansının kullanım şartlarının belirlenmesidir.</p>
-        <h6>3. İADE ŞARTLARI</h6>
-        <p>Yazılım lisansı ve dijital hizmetler, "anında ifa edilen hizmetler" kapsamında olduğundan, sistem aktif edildikten sonra cayma hakkı ve ücret iadesi bulunmamaktadır.</p>
       </div>
       <div class="modal-footer">
         <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Kapat</button>
@@ -109,4 +93,17 @@
     </div>
   </div>
 </div>
+
+<script>
+    document.addEventListener("DOMContentLoaded", function() {
+        const checkbox = document.getElementById('contractCheck');
+        const submitBtn = document.getElementById('notifyBtn');
+
+        if (checkbox && submitBtn) {
+            checkbox.addEventListener('change', function() {
+                submitBtn.disabled = !this.checked;
+            });
+        }
+    });
+</script>
 {% endblock %}
