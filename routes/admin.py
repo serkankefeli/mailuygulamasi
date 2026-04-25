@@ -364,26 +364,37 @@ def admin_rehberler():
 @admin_bp.route('/admin/approve_upgrade/<int:req_id>', methods=['GET', 'POST'])
 @login_required
 def approve_upgrade(req_id):
-    if current_user.is_admin != 1: return redirect(url_for('main.dashboard'))
+    if getattr(current_user, 'is_admin', 0) != 1: return redirect(url_for('main.dashboard'))
     conn = sqlite3.connect(DB_NAME)
     cursor = conn.cursor()
 
-    # 1. Önce talebi yapan kullanıcının ID'sini bulalım
     cursor.execute("SELECT user_id FROM upgrade_requests WHERE id=?", (req_id,))
     talep = cursor.fetchone()
 
     if talep:
         user_id = talep[0]
-        # 2. Kullanıcıyı PRO hesaba yükselt
+        # Kullanıcıyı PRO yap
         cursor.execute("UPDATE users SET plan_type='pro' WHERE id=?", (user_id,))
-
-        # 3. Talebin durumunu 'Onaylandı' olarak değiştir
+        # Talebi Onaylandı olarak işaretle
         cursor.execute("UPDATE upgrade_requests SET durum='onaylandi' WHERE id=?", (req_id,))
-
         conn.commit()
         flash('Ödeme onaylandı! Kullanıcı başarıyla PRO hesaba yükseltildi.', 'success')
     else:
         flash('Talep bulunamadı!', 'danger')
 
     conn.close()
+    return redirect(url_for('admin.payment_management'))
+
+
+@admin_bp.route('/admin/reject_upgrade/<int:req_id>', methods=['GET', 'POST'])
+@login_required
+def reject_upgrade(req_id):
+    if getattr(current_user, 'is_admin', 0) != 1: return redirect(url_for('main.dashboard'))
+    conn = sqlite3.connect(DB_NAME)
+    cursor = conn.cursor()
+
+    cursor.execute("UPDATE upgrade_requests SET durum='reddedildi' WHERE id=?", (req_id,))
+    conn.commit()
+    conn.close()
+    flash('Ödeme talebi reddedildi.', 'warning')
     return redirect(url_for('admin.payment_management'))

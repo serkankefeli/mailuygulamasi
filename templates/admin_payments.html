@@ -39,8 +39,8 @@
                         <td class="fw-bold">{{ req[1] }}</td>
                         <td>{{ req[2] }}</td>
                         <td>
-                            {% if req[3] == 'beklemede' %}
-                            <span class="badge bg-warning text-dark">BEKLEMEDE</span>
+                            {% if req[3] == 'beklemede' or req[3] == 'bekliyor' %}
+                            <span class="badge bg-warning text-dark">BEKLİYOR</span>
                             {% elif req[3] == 'onaylandi' %}
                             <span class="badge bg-success">ONAYLANDI</span>
                             {% elif req[3] == 'reddedildi' %}
@@ -50,7 +50,7 @@
                             {% endif %}
                         </td>
                         <td class="text-end">
-                            {% if req[3] == 'beklemede' %}
+                            {% if req[3] == 'beklemede' or req[3] == 'bekliyor' %}
                             <div class="btn-group" role="group">
                                 <a href="{{ url_for('admin.approve_upgrade', req_id=req[0]) }}" class="btn btn-sm btn-success shadow-sm" title="PRO Yap (Onayla)">
                                     <i class="fas fa-check"></i> Onayla
