@@ -4,16 +4,16 @@
 
     <ul class="nav nav-pills shadow-sm p-3 mb-4 bg-white rounded">
     <li class="nav-item">
-        <a class="nav-link text-dark" href="{{ url_for('admin_users') }}"><i class="fas fa-users"></i> Kullanıcı Yönetimi</a>
+        <a class="nav-link text-dark" href="{{ url_for('admin.admin_users') }}"><i class="fas fa-users"></i> Kullanıcı Yönetimi</a>
     </li>
     <li class="nav-item ms-2">
-        <a class="nav-link active bg-success" href="{{ url_for('payment_management') }}"><i class="fas fa-wallet"></i> Ödeme Yönetimi</a>
+        <a class="nav-link active bg-success" href="{{ url_for('admin.payment_management') }}"><i class="fas fa-wallet"></i> Ödeme Yönetimi</a>
     </li>
     <li class="nav-item ms-2">
-        <a class="nav-link text-dark" href="{{ url_for('admin_site_settings') }}"><i class="fas fa-globe"></i> Site & Analiz</a>
+        <a class="nav-link text-dark" href="{{ url_for('admin.admin_site_settings') }}"><i class="fas fa-globe"></i> Site & Analiz</a>
     </li>
     <li class="nav-item ms-auto">
-        <a class="nav-link text-secondary" href="{{ url_for('dashboard') }}"><i class="fas fa-arrow-left"></i> Panoya Dön</a>
+        <a class="nav-link text-secondary" href="{{ url_for('main.dashboard') }}"><i class="fas fa-arrow-left"></i> Panoya Dön</a>
     </li>
     </ul>
 
@@ -52,10 +52,10 @@
                         <td class="text-end">
                             {% if req[3] == 'beklemede' %}
                             <div class="btn-group" role="group">
-                                <a href="{{ url_for('approve_upgrade', req_id=req[0]) }}" class="btn btn-sm btn-success shadow-sm" title="PRO Yap (Onayla)">
+                                <a href="{{ url_for('admin.approve_upgrade', req_id=req[0]) }}" class="btn btn-sm btn-success shadow-sm" title="PRO Yap (Onayla)">
                                     <i class="fas fa-check"></i> Onayla
                                 </a>
-                                <a href="{{ url_for('reject_upgrade', req_id=req[0]) }}" class="btn btn-sm btn-danger shadow-sm" title="Talebi Reddet">
+                                <a href="{{ url_for('admin.reject_upgrade', req_id=req[0]) }}" class="btn btn-sm btn-danger shadow-sm" title="Talebi Reddet">
                                     <i class="fas fa-times"></i> Reddet
                                 </a>
                             </div>
@@ -81,7 +81,7 @@
         <h5 class="mb-0"><i class="fas fa-plug me-2"></i> Entegrasyon ve Ödeme Ayarları</h5>
     </div>
     <div class="card-body">
-        <form action="{{ url_for('payment_management') }}" method="POST">
+        <form action="{{ url_for('admin.payment_management') }}" method="POST">
 
             <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
 
@@ -112,7 +112,7 @@
                         <h6 class="fw-bold mb-3"><i class="fas fa-university me-2 text-success"></i> Havale / EFT</h6>
 
                         <label class="small text-muted fw-bold">Hesap Sahibi</label>
-                        <input type="text" name="hesap_sahibi" class="form-control mb-2" value="{{ settings[10] if settings|length > 10 else '' }}" placeholder="örn: Serkan Kefeli">
+                        <input type="text" name="hesap_sahibi" class="form-control mb-2" value="{{ settings[10] if settings|length > 10 else '' }}" placeholder="örn: Ad Soyad">
 
                         <label class="small text-muted fw-bold">Banka Adı</label>
                         <input type="text" name="banka" class="form-control mb-2" value="{{ settings[3] }}">
